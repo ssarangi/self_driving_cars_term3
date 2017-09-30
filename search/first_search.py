@@ -16,6 +16,7 @@
 #   1 = Occupied space
 
 import heapq
+from pprint import pprint
 
 
 class PriorityQueueSet(object):
@@ -121,11 +122,15 @@ def search(grid, init, goal, cost):
     visited = set()
     visited.add(GridLoc(init[0], init[1]))
     current = None
+    expansion = [[-1 for _ in range(len(grid[0]))] for _ in range(len(grid))]
+    idx = 0
     while not pq.empty():
         current = pq.pop_smallest()
         current_cost = current[0]
         current_pos = current[1]
         print("Exploring: (%s) --> (%s, %s)" % (current_cost, current_pos.row, current_pos.col))
+        expansion[current_pos.row][current_pos.col] = idx
+        idx += 1
         visited.add(current_pos)
         if current_pos == goal:
             break
@@ -141,10 +146,10 @@ def search(grid, init, goal, cost):
         return "fail"
 
     path = [current[0], current[1].row, current[1].col]
-    return path
+    return path, expansion
 
 def main():
-    search(grid, init, goal, cost)
+    pprint(search(grid, init, goal, cost))
 
 
 if __name__ == "__main__":
