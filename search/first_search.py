@@ -91,7 +91,7 @@ grid = [[0, 0, 1, 0, 0, 0],
         [0, 0, 0, 0, 1, 0],
         [0, 0, 1, 1, 1, 0],
         [0, 0, 0, 0, 1, 0]]
-init = [0, 0]
+init = GridLoc(0, 0)
 goal = GridLoc(len(grid)-1, len(grid[0])-1)
 cost = 1
 
@@ -117,9 +117,9 @@ def _is_blocked(grid, grid_loc):
 
 def search(grid, init, goal, cost):
     pq = PriorityQueueSet()
-    pq.add((0, GridLoc(init[0], init[1])))
+    pq.add((0, init))
     visited = set()
-    visited.add(GridLoc(init[0], init[1]))
+    visited.add(init)
     current = None
     expansion = [[-1 for _ in range(len(grid[0]))] for _ in range(len(grid))]
     memory = [[(-1, -1) for _ in range(len(grid[0]))] for _ in range(len(grid))]
@@ -148,11 +148,14 @@ def search(grid, init, goal, cost):
 
     path = [[' ' for _ in range(len(grid[0]))] for _ in range(len(grid))]
     # Trace back the path again
-    current = goal
-    while current != init:
-        prev_move = memory[current.row][current.col]
+    current_pos = goal
+    path[goal.row][goal.col] = '*'
+    while current_pos != init:
+        prev_move = memory[current_pos.row][current_pos.col]
         idx = delta.index(prev_move)
-        path[current.row + prev_move[0], current.col + prev_move[1]] = delta_name[idx]
+        prev_pos = GridLoc(current_pos.row - prev_move[0], current_pos.col - prev_move[1])
+        path[prev_pos.row][prev_pos.col] = delta_name[idx]
+        current_pos = prev_pos
 
     final = [current[0], current[1].row, current[1].col]
     return final, path, expansion
