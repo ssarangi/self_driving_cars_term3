@@ -102,7 +102,6 @@ delta = [[-1,  0],  # go up
 
 delta_name = ['^', '<', 'v', '>']
 
-
 def _is_valid_grid_loc(grid, grid_loc):
     if grid_loc.row < 0 or grid_loc.col < 0 or grid_loc.row >= len(grid) or grid_loc.col >= len(grid[0]):
         return False
@@ -123,6 +122,7 @@ def search(grid, init, goal, cost):
     visited.add(GridLoc(init[0], init[1]))
     current = None
     expansion = [[-1 for _ in range(len(grid[0]))] for _ in range(len(grid))]
+    memory = [[(-1, -1) for _ in range(len(grid[0]))] for _ in range(len(grid))]
     idx = 0
     while not pq.empty():
         current = pq.pop_smallest()
@@ -135,18 +135,27 @@ def search(grid, init, goal, cost):
         if current_pos == goal:
             break
 
-        for move in delta:
+        for idx, move in enumerate(delta):
             new_pos = current_pos.new_pos(move[0], move[1])
             if _is_valid_grid_loc(grid, new_pos) and new_pos not in visited and not _is_blocked(grid, new_pos):
                 pq.add((current_cost + 1, new_pos))
+                memory[new_pos.row][new_pos.col] = [new_pos.row - current_pos.row, new_pos.col - current_pos.col]
 
         current = None
 
     if current is None:
         return "fail"
 
-    path = [current[0], current[1].row, current[1].col]
-    return path, expansion
+    path = [[' ' for _ in range(len(grid[0]))] for _ in range(len(grid))]
+    # Trace back the path again
+    current = goal
+    while current != init:
+        prev_move = memory[current.row][current.col]
+        idx = delta.index(prev_move)
+        path[current.row + prev_move[0], current.col + prev_move[1]] = delta_name[idx]
+
+    final = [current[0], current[1].row, current[1].col]
+    return final, path, expansion
 
 def main():
     pprint(search(grid, init, goal, cost))
