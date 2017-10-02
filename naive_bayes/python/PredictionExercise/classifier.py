@@ -1,4 +1,5 @@
 from pprint import pprint
+import numpy as np
 
 def compute_mean(mean_val, label_name, column_name):
 	mean_v = mean_val[column_name][mean_val.index == label_name].values[0]
@@ -7,6 +8,14 @@ def compute_mean(mean_val, label_name, column_name):
 def compute_variance(variance, label_name, column_name):
 	var = variance[column_name][variance.index == label_name].values[0]
 	return var
+
+# Create a function that calculates p(x | y):
+def p_x_given_y(x, mean_y, variance_y):
+	# Input the arguments into a probability density function
+    p = 1/(np.sqrt(2*np.pi*variance_y)) * np.exp((-(x-mean_y)**2)/(2*variance_y))
+
+	# return p
+    return p
 
 class GNB(object):
 	def train(self, df):
