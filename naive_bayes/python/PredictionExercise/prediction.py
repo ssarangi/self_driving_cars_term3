@@ -2,7 +2,6 @@
 
 from classifier import GNB
 import pandas as pd
-from pprint import pprint
 
 def convert_to_labels(df):
 	new_df = pd.DataFrame(df['states'].values.tolist(),
