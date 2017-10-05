@@ -1,5 +1,6 @@
 from pprint import pprint
 import numpy as np
+import pandas as pd
 
 def compute_mean(mean_val, label_name, column_name):
 	mean_v = mean_val[column_name][mean_val.index == label_name].values[0]
@@ -18,7 +19,10 @@ def p_x_given_y(x, mean_y, variance_y):
     return p
 
 class GNB(object):
-	def train(self, df):
+	def __init__(self):
+		self.df = None
+
+	def train(self, df : pd.DataFrame, Y_label : str):
 		"""
 		Trains the classifier with N data points and labels.
 
@@ -29,26 +33,28 @@ class GNB(object):
 		labels - array of N labels
 		       - Each label is one of "left", "keep", or "right".
 		"""
-		mean_val = df.groupby('labels').mean()
-		variance = df.groupby('labels').var()
-		possible_labels = df['labels'].unique().tolist()
+		self.Y_label = Y_label
+		mean_val = df.groupby(Y_label).mean()
+		variance = df.groupby(Y_label).var()
+		possible_labels = df[Y_label].unique().tolist()
 
 		values = {}
 		for label in possible_labels:
-			for column in [c for c in df.columns if c != 'labels']:
+			for column in [c for c in df.columns if c != Y_label]:
 				values[label + '_' + column + '_means'] = compute_mean(mean_val, label, column)
 				values[label + '_' + column + '_variance'] = compute_variance(variance, label, column)
 
-		pprint(values)
+		self.values = values
+		self.df = df
 
-	def predict(self, observation):
+	def predict(self, observation : pd.Series):
 		"""
 		Once trained, this method is called and expected to return
 		a predicted behavior for the given observation.
 
 		INPUTS
 
-		observation - a 4 tuple with s, d, s_dot, d_dot.
+		observation - a pandas row s, d, s_dot, d_dot.
 		  - Example: [3.5, 0.1, 8.5, -0.2]
 
 		OUTPUT
@@ -56,5 +62,23 @@ class GNB(object):
 		A label representing the best guess of the classifier. Can
 		be one of "left", "keep" or "right".
 		"""
-		# TODO - complete this
-		return self.possible_labels[1]
+		unique_labels = self.df[self.Y_label].unique().tolist()
+
+		max_prob = -1
+		max_prob_label = ''
+		for label in unique_labels:
+			prob_label = self.df[self.Y_label][self.df[self.Y_label] == label].count() / self.df[self.Y_label].count()
+
+			current_prob = 1
+			for column, column_value in observation.iteritems():
+				if column != self.Y_label:
+					current_prob *= p_x_given_y(
+						column_value, self.values[label + '_' + column + '_means'], self.values[label + '_' + column + '_variance'])
+
+			current_prob *= prob_label
+
+			if current_prob > max_prob:
+				max_prob = current_prob
+				max_prob_label  = label
+
+		return max_prob_label, max_prob
