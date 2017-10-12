@@ -11,6 +11,7 @@
 
 #include "path_planner.h"
 #include "utils.h"
+#include "spline.h"
 
 using namespace std;
 
@@ -197,7 +198,10 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&pathPlanner, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  int lane = 1;
+  double ref_val = 49.5; // mph
+
+  h.onMessage([&ref_val, &lane, &pathPlanner, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -234,13 +238,80 @@ int main() {
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	auto sensor_fusion = j[1]["sensor_fusion"];
 
-            double dist_inc = 0.05;
-            auto pPath = pathPlanner.getStraightLinePath(car_x, car_y, car_yaw, dist_inc);
+            // -------------------------- AARON's CODE -------------------------------------
+            int prev_size = previous_path_x.size();
+
+            if (prev_size > 0)
+                car_s = end_path_s;
+
+            bool too_close = false;
+
+            // find ref_val to use
+            for (int i = 0; i < sensor_fusion.size(); ++i) {
+                // car is in my lane
+                float d = sensor_fusion[i][6];
+                if (d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2)) {
+                    double vx = sensor_fusion[i][3];
+                    double vy = sensor_fusion[i][4];
+                    double check_speed = sqrt(vx * vx + vy * vy);
+                    double check_car_s = sensor_fusion[i][5];
+
+                    check_car_s += ((double)prev_size * 0.02 * check_speed); /// If using prev points can project s value outside
+                    // check s values greater than mine and s gap
+                    if ((check_car_s > car_s) && (check_car_s - car_s) < 30) {
+                        // Do some logic, lower reference velocity so we don't crash into the car infront of us, could
+                        // also flag to try and change lanes.
+                        ref_val = 29.6; // mph
+                        // too_close = true;
+                    }
+                }
+            }
+
+            if (too_close)
+                ref_val -= 0.224;
+            else if (ref_val < 49.5)
+                ref_val += 0.224;
+
+            // Create a list of widely spaced (x, y) waypoints, evenly spaced at 30m.
+            // Later we will interpolate these waypoints with a spline and fill it in with more points that control speed
+            vector<double> ptsx;
+            vector<double> ptsy;
+
+            double ref_x = car_x;
+            double ref_y = car_y;
+            double ref_yaw = deg2rad(car_yaw);
+
+            // If previous size is almost empty, use the car as starting point.
+            if (prev_size < 2) {
+              double prev_car_x = car_x - cos(car_yaw);
+              double prev_car_y = car_y - sin(car_yaw);
+
+              ptsx.push_back(prev_car_x);
+              ptsx.push_back(car_x);
+
+              ptsy.push_back(prev_car_y);
+              ptsy.push_back(car_y);
+            }
+
+            // double dist_inc = 0.05;
+            // auto pPath = pathPlanner.getStraightLinePath(car_x, car_y, car_yaw, dist_inc);
+
+            vector<double> next_x;
+            vector<double> next_y;
+
+            double dist_inc = 0.3;
+            for (int i = 0; i < 50; ++i) {
+              double next_s = car_s + (i + 1) * dist_inc;
+              double next_d = 6;
+              vector<double> xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              next_x.push_back(xy[0]);
+              next_y.push_back(xy[1]);
+            }
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
             json msgJson;
-            msgJson["next_x"] = pPath->x_vals;
-          	msgJson["next_y"] = pPath->y_vals;
+            msgJson["next_x"] = next_x; // pPath->x_vals;
+            msgJson["next_y"] = next_y; // pPath->y_vals;
 
             auto msg = "42[\"control\","+ msgJson.dump()+"]";
 

@@ -15,7 +15,8 @@ set(sources
     src/vehicle.h
     src/utils.h
     src/json.hpp
-    src/constants.h)
+    src/constants.h
+    src/spline.h)
 
 set(CMAKE_CXX_STANDARD 14)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
