@@ -75,19 +75,16 @@ void PathPlanner::reduceOrIncreaseReferenceVelocity(bool too_close) {
     m_refVel += 0.224;
 }
 
-unique_ptr<Path> PathPlanner::createTrajectoryPoints(
-    const std::vector<double>& previous_path_x,
-    const std::vector<double>& previous_path_y) {
+void PathPlanner::createPointsForSpline(
+    const std::vector<double> &previous_path_x,
+    const std::vector<double> &previous_path_y,
+    double &ref_x,
+    double &ref_y,
+    double &ref_yaw,
+    std::vector<double> &ptsx,
+    std::vector<double> &ptsy) {
 
   int prev_path_size = previous_path_x.size();
-
-  // Trajectory Generation.
-  vector<double> ptsx;
-  vector<double> ptsy;
-
-  double ref_x = m_pEgoVehicle->mX;
-  double ref_y = m_pEgoVehicle->mY;
-  double ref_yaw = deg2rad(m_pEgoVehicle->mYaw);
 
   if (prev_path_size < 2) {
     double prev_car_x = m_pEgoVehicle->mX - cos(m_pEgoVehicle->mYaw);
@@ -133,6 +130,23 @@ unique_ptr<Path> PathPlanner::createTrajectoryPoints(
     ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
     ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
   }
+}
+
+unique_ptr<Path> PathPlanner::createTrajectoryPoints(
+    const std::vector<double>& previous_path_x,
+    const std::vector<double>& previous_path_y) {
+
+  int prev_path_size = previous_path_x.size();
+
+  // Trajectory Generation.
+  vector<double> ptsx;
+  vector<double> ptsy;
+
+  double ref_yaw = deg2rad(m_pEgoVehicle->mYaw);
+  double ref_x = m_pEgoVehicle->mX;
+  double ref_y = m_pEgoVehicle->mY;
+
+  createPointsForSpline(previous_path_x, previous_path_y, ref_x, ref_y, ref_yaw, ptsx, ptsy);
 
   // Create a spline
   tk::spline s;

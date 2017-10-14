@@ -69,6 +69,9 @@ private:
   void createPointsForSpline(
       const std::vector<double>& previous_path_x,
       const std::vector<double>& previous_path_y,
+      double &ref_x,
+      double &ref_y,
+      double &ref_yaw,
       std::vector<double>& ptsx,
       std::vector<double>& ptsy);
 
