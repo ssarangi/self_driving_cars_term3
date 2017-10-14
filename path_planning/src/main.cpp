@@ -93,19 +93,18 @@ int main() {
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	auto sensor_fusion = j[1]["sensor_fusion"];
 
-             double dist_inc = 0.05;
-             auto pPath = pathPlanner.generateTrajectory(
-               car_x,
-               car_y,
-               car_s,
-               car_d,
-               car_yaw,
-               car_speed,
-               previous_path_x,
-               previous_path_y,
-               end_path_s,
-               end_path_d,
-               sensor_fusion);
+            auto pPath = pathPlanner.generateTrajectory(
+              car_x,
+              car_y,
+              car_s,
+              car_d,
+              car_yaw,
+              car_speed,
+              end_path_s,
+              end_path_d,
+              previous_path_x,
+              previous_path_y,
+              sensor_fusion);
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
             json msgJson;

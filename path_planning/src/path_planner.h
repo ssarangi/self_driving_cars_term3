@@ -29,22 +29,23 @@ public:
     m_mapWaypoints_y = map_waypoints_y;
     m_mapWaypoints_s = map_waypoints_s;
     m_pEgoVehicle = new EgoVehicle();
+    counter = 0;
   }
   ~PathPlanner() {
     // Free up all the objects we allocated
   }
 
   std::unique_ptr<Path> generateTrajectory(
-      double car_x,
-      double car_y,
-      double car_s,
-      double car_d,
-      double car_yaw,
-      double car_speed,
-      const std::vector<double>& previous_path_x,
-      const std::vector<double>& previous_path_y,
+      const double car_x,
+      const double car_y,
+      const double car_s,
+      const double car_d,
+      const double car_yaw,
+      const double car_speed,
       const double end_path_s,
       const double end_path_d,
+      const std::vector<double>& previous_path_x,
+      const std::vector<double>& previous_path_y,
       const std::vector<std::vector<double>>& sensor_fusion);
 
 private:
@@ -55,13 +56,29 @@ private:
       const double s,
       const double d,
       const double yaw);
+
   void initializeTraffic(const std::vector<std::vector<double>>& sensor_fusion);
+
   bool checkClosenessToOtherCarsAndChangeLanes(
     const std::vector<std::vector<double>>& sensor_fusion,
     const int previous_iteration_points_left,
     const double car_s);
 
+  void reduceOrIncreaseReferenceVelocity(bool too_close);
+
+  void createPointsForSpline(
+      const std::vector<double>& previous_path_x,
+      const std::vector<double>& previous_path_y,
+      std::vector<double>& ptsx,
+      std::vector<double>& ptsy);
+
+  std::unique_ptr<Path> createTrajectoryPoints(
+      const std::vector<double>& previous_path_x,
+      const std::vector<double>& previous_path_y);
+
+
 private:
+  int counter;
   EgoVehicle *m_pEgoVehicle;
   int m_currentLane;
   double m_refVel;

@@ -33,7 +33,7 @@ void PathPlanner::initializeTraffic(
       m_IdToVehicle[id] = new Vehicle();
     }
 
-    assert(pData->size() == sizeof(Vehicle));
+    assert(pData->size() * sizeof(double) == sizeof(Vehicle));
     memcpy(m_IdToVehicle[id], pData, pData->size() * sizeof(double));
   }
 }
@@ -68,83 +68,42 @@ bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
   return too_close;
 }
 
-unique_ptr<Path> PathPlanner::generateTrajectory(
-    double car_x,
-    double car_y,
-    double car_s,
-    double car_d,
-    double car_yaw,
-    double car_speed,
-    const vector<double>& previous_path_x,
-    const vector<double>& previous_path_y,
-    const double end_path_s,
-    const double end_path_d,
-    const vector<vector<double>>& sensor_fusion) {
-
-  // Initialization of Ego Vehicle
-  initializeEgoVehicle(car_x, car_y, car_speed, car_s, car_d, car_yaw);
-
-  // Initialize the traffic. Create Vehicle objects for the id's not yet seen and then find out the closest
-  // vehicles and get them in a vector.
-  initializeTraffic(sensor_fusion);
-
-  int prev_size = previous_path_x.size();
-
-  if (prev_size > 0) {
-    car_s = end_path_s;
-  }
-
-  // Check CLoseness with other cars.
-  bool too_close = checkClosenessToOtherCarsAndChangeLanes(sensor_fusion, prev_size, car_s);
-
-  for (int i = 0; i < sensor_fusion.size(); ++i) {
-    float d = sensor_fusion[i][6];
-
-    if (d < (2+4*m_currentLane+2) && d > (2+4*m_currentLane-2)) {
-      double vx = sensor_fusion[i][3];
-      double vy = sensor_fusion[i][4];
-      double check_speed = sqrt(vx * vx + vy * vy);
-      double check_car_s = sensor_fusion[i][5];
-
-      check_car_s += ((double)prev_size * 0.02 * check_speed); // If using previous points can project s value output
-      if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
-        too_close = true;
-        if (m_currentLane > 0)
-          m_currentLane -= 1;
-        else if (m_currentLane < 3)
-          m_currentLane += 1;
-      }
-    }
-  }
-
+void PathPlanner::reduceOrIncreaseReferenceVelocity(bool too_close) {
   if (too_close)
-    m_refVel -= 0.224;
+    m_refVel -= 0.224 ;
   else if (m_refVel < 49.5)
     m_refVel += 0.224;
+}
+
+unique_ptr<Path> PathPlanner::createTrajectoryPoints(
+    const std::vector<double>& previous_path_x,
+    const std::vector<double>& previous_path_y) {
+
+  int prev_path_size = previous_path_x.size();
 
   // Trajectory Generation.
   vector<double> ptsx;
   vector<double> ptsy;
 
-  double ref_x = car_x;
-  double ref_y = car_y;
-  double ref_yaw = deg2rad(car_yaw);
+  double ref_x = m_pEgoVehicle->mX;
+  double ref_y = m_pEgoVehicle->mY;
+  double ref_yaw = deg2rad(m_pEgoVehicle->mYaw);
 
-  if (prev_size < 2) {
-    double prev_car_x = car_x - cos(car_yaw);
-    double prev_car_y = car_y - sin(car_yaw);
+  if (prev_path_size < 2) {
+    double prev_car_x = m_pEgoVehicle->mX - cos(m_pEgoVehicle->mYaw);
+    double prev_car_y = m_pEgoVehicle->mY - sin(m_pEgoVehicle->mYaw);
 
     ptsx.push_back(prev_car_x);
-    ptsx.push_back(car_x);
+    ptsx.push_back(m_pEgoVehicle->mX);
 
     ptsy.push_back(prev_car_y);
-    ptsy.push_back(car_y);
+    ptsy.push_back(m_pEgoVehicle->mY);
   } else {
-    ref_x = previous_path_x[prev_size - 1];
-    ref_y = previous_path_y[prev_size - 1];
+    ref_x = previous_path_x[prev_path_size - 1];
+    ref_y = previous_path_y[prev_path_size - 1];
 
-    double ref_x_prev = previous_path_x[prev_size - 2];
-    double ref_y_prev = previous_path_y[prev_size - 2];
+    double ref_x_prev = previous_path_x[prev_path_size - 2];
+    double ref_y_prev = previous_path_y[prev_path_size - 2];
     ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
 
     ptsx.push_back(ref_x_prev);
@@ -155,9 +114,9 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   }
 
   // In Frenet add evenly 30m spaced points ahead of the starting reference
-  vector<double> next_wp0 = getXY(car_s + 30, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
-  vector<double> next_wp1 = getXY(car_s + 60, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
-  vector<double> next_wp2 = getXY(car_s + 90, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp0 = getXY(m_pEgoVehicle->mS + 30, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp1 = getXY(m_pEgoVehicle->mS + 60, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp2 = getXY(m_pEgoVehicle->mS + 90, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
 
   ptsx.push_back(next_wp0[0]);
   ptsx.push_back(next_wp1[0]);
@@ -215,5 +174,38 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   }
 
   auto p = std::make_unique<Path>(move(pTrajectory));
+  return p;
+}
+
+unique_ptr<Path> PathPlanner::generateTrajectory(
+    const double car_x,
+    const double car_y,
+    const double car_s,
+    const double car_d,
+    const double car_yaw,
+    const double car_speed,
+    const double end_path_s,
+    const double end_path_d,
+    const vector<double>& previous_path_x,
+    const vector<double>& previous_path_y,
+    const vector<vector<double>>& sensor_fusion) {
+
+  int prev_path_size = previous_path_x.size();
+
+  double ego_car_s = prev_path_size > 0 ? end_path_s : car_s;
+
+  // Initialization of Ego Vehicle
+  initializeEgoVehicle(car_x, car_y, car_speed, ego_car_s, car_d, car_yaw);
+
+  // Initialize the traffic. Create Vehicle objects for the id's not yet seen and then find out the closest
+  // vehicles and get them in a vector.
+  initializeTraffic(sensor_fusion);
+
+  // Check CLoseness with other cars.
+  bool too_close = checkClosenessToOtherCarsAndChangeLanes(sensor_fusion, prev_path_size, car_s);
+
+  reduceOrIncreaseReferenceVelocity(too_close);
+
+  auto p = createTrajectoryPoints(previous_path_x, previous_path_y);
   return p;
 }
