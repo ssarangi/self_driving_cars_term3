@@ -1,6 +1,8 @@
 #include <math.h>
 #include <utility>
 #include <memory>
+#include <cstring>
+#include <assert.h>
 
 #include "spline.h"
 #include "path_planner.h"
@@ -8,20 +10,62 @@
 
 using namespace std;
 
-unique_ptr<Path> PathPlanner::getStraightLinePath(
-    double car_x,
-    double car_y,
-    double car_yaw,
-    double dist_inc) {
-  Path *pStraightPath = new Path();
+typedef const vector<double>* vector_ptr;
 
-  for (int i = 0; i < 1000; ++i) {
-    pStraightPath->x_vals.push_back(car_x + (dist_inc * i) * cos(deg2rad(car_yaw)));
-    pStraightPath->y_vals.push_back(car_y + (dist_inc * i) * sin(deg2rad(car_yaw)));
+void PathPlanner::initializeEgoVehicle(
+    const double x,
+    const double y,
+    const double v,
+    const double s,
+    const double d,
+    const double yaw) {
+  m_pEgoVehicle->resetState(x, y, v, s, d, yaw);
+}
+
+void PathPlanner::initializeTraffic(
+  const std::vector<std::vector<double>>& sensor_fusion) {
+  // First find out
+  int total_vehicles = sensor_fusion.size();
+  for (int i = 0; i < total_vehicles; ++i) {
+    int id = sensor_fusion[i][0];
+    const vector_ptr pData = static_cast<vector_ptr>(&sensor_fusion[i]);
+    if (m_IdToVehicle.find(id) == m_IdToVehicle.end()) {
+      m_IdToVehicle[id] = new Vehicle();
+    }
+
+    assert(pData->size() == sizeof(Vehicle));
+    memcpy(m_IdToVehicle[id], pData, pData->size() * sizeof(double));
+  }
+}
+
+bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
+        const vector<vector<double>>& sensor_fusion,
+        const int previous_iteration_points_left,
+        const double car_s) {
+  // Check CLoseness with other cars.
+  bool too_close = false;
+
+  for (int i = 0; i < sensor_fusion.size(); ++i) {
+    float d = sensor_fusion[i][6];
+
+    if (d < (2+4*m_currentLane+2) && d > (2+4*m_currentLane-2)) {
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx * vx + vy * vy);
+      double check_car_s = sensor_fusion[i][5];
+
+      check_car_s += ((double)previous_iteration_points_left * 0.02 * check_speed); // If using previous points can project s value output
+      if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
+        too_close = true;
+        if (m_currentLane > 0)
+          m_currentLane -= 1;
+        else if (m_currentLane < 3)
+          m_currentLane += 1;
+      }
+    }
   }
 
-  auto p = std::make_unique<Path>(move(pStraightPath));
-  return p;
+  return too_close;
 }
 
 unique_ptr<Path> PathPlanner::generateTrajectory(
@@ -36,15 +80,22 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
     const double end_path_s,
     const double end_path_d,
     const vector<vector<double>>& sensor_fusion) {
+
+  // Initialization of Ego Vehicle
+  initializeEgoVehicle(car_x, car_y, car_speed, car_s, car_d, car_yaw);
+
+  // Initialize the traffic. Create Vehicle objects for the id's not yet seen and then find out the closest
+  // vehicles and get them in a vector.
+  initializeTraffic(sensor_fusion);
+
   int prev_size = previous_path_x.size();
 
   if (prev_size > 0) {
     car_s = end_path_s;
   }
 
-
   // Check CLoseness with other cars.
-  bool too_close = false;
+  bool too_close = checkClosenessToOtherCarsAndChangeLanes(sensor_fusion, prev_size, car_s);
 
   for (int i = 0; i < sensor_fusion.size(); ++i) {
     float d = sensor_fusion[i][6];

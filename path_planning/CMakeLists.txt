@@ -11,7 +11,6 @@ set(sources
     src/main.cpp
     src/path_planner.cpp
     src/path_planner.h
-    src/vehicle.cpp
     src/vehicle.h
     src/utils.cpp
     src/utils.h
