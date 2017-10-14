@@ -13,6 +13,7 @@ set(sources
     src/path_planner.h
     src/vehicle.cpp
     src/vehicle.h
+    src/utils.cpp
     src/utils.h
     src/json.hpp
     src/constants.h
