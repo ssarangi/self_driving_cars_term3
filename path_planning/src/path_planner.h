@@ -4,8 +4,19 @@
 #include <vector>
 #include <memory>
 #include <unordered_map>
+#include <tuple>
 
 #include "vehicle.h"
+
+struct EgoVehicleNewState {
+  int new_lane;
+  double refVel;
+
+  EgoVehicleNewState(int lane, double vel) {
+    new_lane = lane;
+    refVel = vel;
+  }
+};
 
 struct Path {
   std::vector<double> x_vals;
@@ -59,7 +70,7 @@ private:
 
   void initializeTraffic(const std::vector<std::vector<double>>& sensor_fusion);
 
-  bool checkClosenessToOtherCarsAndChangeLanes(
+  std::tuple<bool, std::vector<EgoVehicleNewState*>> checkClosenessToOtherCarsAndChangeLanes(
     const int previous_iteration_points_left);
 
   static double reduceOrIncreaseReferenceVelocity(
@@ -89,6 +100,10 @@ private:
       const std::vector<double>& previous_path_x,
       const std::vector<double>& previous_path_y) const;
 
+  EgoVehicleNewState* selectRandomLane(
+      const std::vector<EgoVehicleNewState*>& possibleEgoVehicleNewStates) const;
+
+  void implementLaneChange(int new_lane);
 
 private:
   int counter;

@@ -20,7 +20,13 @@ const double POINTS = 50;
 const double FRONT_SAFE_DISTANCE = 40.0; // m
 const double BACK_SAFE_DISTANCE = -20.0; // m
 const double MAX_SPEED = 49.5;
+const double MIN_SPEED = 0.0;
 const double LANE_WIDTH = 4; // m
 const double SAFE_DISTANCE_TO_MAINTAIN = 30; // m
+const double INCREASE_VEL_FACTOR = 0.224;
+const int    MAX_RIGHT_LANE = 2;
+const int    FARTHEST_LEFT_LANE = 0;
+const int    FARTHEST_RIGHT_LANE = 2;
+const int    MIDDLE_LANE = (FARTHEST_LEFT_LANE + FARTHEST_RIGHT_LANE) / 2;
 
 #endif // CONSTANTS_H

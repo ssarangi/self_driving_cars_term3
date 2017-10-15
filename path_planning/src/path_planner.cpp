@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <iostream>
 #include <algorithm>
+#include <random>
 
 #include "spline.h"
 #include "path_planner.h"
@@ -49,14 +50,16 @@ void PathPlanner::initializeTraffic(
   }
 }
 
-bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
+// Check if the ego vehicle is close to other cars in the same lane.
+tuple<bool, vector<EgoVehicleNewState*>> PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
         const int previous_iteration_points_left) {
-  // Check closeness with other cars.
+
   bool too_close = false;
 
   // Check only the cars in the current lane
   vector<Vehicle*> vehicles_in_ego_car_lane = m_LaneIdToVehicles[m_currentLane];
 
+  vector<EgoVehicleNewState*> ego_vehicle_states;
   for (Vehicle* vehicle : vehicles_in_ego_car_lane) {
     double vx = vehicle->vx;
     double vy = vehicle->vy;
@@ -66,16 +69,24 @@ bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
     check_car_s += ((double)previous_iteration_points_left * 0.02 * check_speed); // If using previous points can project s value output
     if ((check_car_s > m_pEgoVehicle->mS) && ((check_car_s - m_pEgoVehicle->mS) < SAFE_DISTANCE_TO_MAINTAIN)) {
       too_close = true;
-      if (m_currentLane > 0) {
-        m_currentLane -= 1;
-      } else if (m_currentLane < 2) {
-        m_currentLane += 1;
+      int farthestLeftLane = FARTHEST_LEFT_LANE;
+      int farthestRightLane = FARTHEST_RIGHT_LANE;
+
+      if (m_currentLane == FARTHEST_LEFT_LANE) {
+        farthestLeftLane = 1;
+        farthestRightLane = FARTHEST_RIGHT_LANE;
+      } else if (m_currentLane == MAX_RIGHT_LANE) {
+        farthestLeftLane = FARTHEST_LEFT_LANE;
+        farthestRightLane = FARTHEST_RIGHT_LANE - 1;
       }
-      cout << "Changed lane to " << m_currentLane << endl;
+
+      for (int i = farthestLeftLane; i <= farthestRightLane; ++i) {
+        ego_vehicle_states.push_back(new EgoVehicleNewState(i, m_refVel));
+      }
     }
   }
 
-  return too_close;
+  return make_tuple(too_close, ego_vehicle_states);
 }
 
 // Change the reference velocity for any vehicle.
@@ -85,12 +96,12 @@ double PathPlanner::reduceOrIncreaseReferenceVelocity(
   double newRefVel = oldRefVel;
 
   if (too_close) {
-    newRefVel -= 0.224;
-    newRefVel = max(newRefVel, 0.0);
-  } else if (oldRefVel < 49.5) {
-    newRefVel += 0.224;
-    newRefVel = min(newRefVel, MAX_SPEED);
+    newRefVel -= INCREASE_VEL_FACTOR;
+  } else if (oldRefVel < MAX_SPEED) {
+    newRefVel += INCREASE_VEL_FACTOR;
   }
+
+  newRefVel = changeVelocity(newRefVel);
 
   return newRefVel;
 }
@@ -238,6 +249,20 @@ unique_ptr<Path> PathPlanner::createTrajectoryPoints(
   return p;
 }
 
+EgoVehicleNewState* PathPlanner::selectRandomLane(
+    const vector<EgoVehicleNewState *> &possibleEgoVehicleNewStates) const {
+  time_t t;
+  srand((unsigned) time(&t));
+  int total_size = possibleEgoVehicleNewStates.size();
+  int selected_state = rand() % total_size;
+  EgoVehicleNewState *pNewState = possibleEgoVehicleNewStates[selected_state];
+  return pNewState;
+}
+
+void PathPlanner::implementLaneChange(int new_lane) {
+  m_currentLane = new_lane;
+}
+
 unique_ptr<Path> PathPlanner::generateTrajectory(
     const double car_x,
     const double car_y,
@@ -264,7 +289,14 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   initializeTraffic(sensor_fusion);
 
   // Check CLoseness with other cars.
-  bool too_close = checkClosenessToOtherCarsAndChangeLanes(prev_path_size);
+  bool too_close;
+  vector<EgoVehicleNewState*> possibleEgoVehicleNewStates;
+  tie(too_close, possibleEgoVehicleNewStates) = checkClosenessToOtherCarsAndChangeLanes(prev_path_size);
+
+  if (possibleEgoVehicleNewStates.size() > 0) {
+    EgoVehicleNewState *pNewState = selectRandomLane(possibleEgoVehicleNewStates);
+    implementLaneChange(pNewState->new_lane);
+  }
 
   // Change the reference velocity based on whether there are cars or not.
   m_refVel = reduceOrIncreaseReferenceVelocity(too_close, m_refVel);

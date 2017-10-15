@@ -30,4 +30,6 @@ std::vector<double> getXY(double s, double d, const std::vector<double> &maps_s,
 
 int getLaneId(double d);
 
+double changeVelocity(double vel);
+
 #endif

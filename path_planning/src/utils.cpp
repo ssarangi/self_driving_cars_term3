@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "utils.h"
 
 using namespace std;
@@ -145,4 +147,9 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 int getLaneId(double d) {
   int lane_id = (int)(d / LANE_WIDTH);
   return lane_id;
+}
+
+double changeVelocity(double vel) {
+  double newVel = max(min(vel, MAX_SPEED), MIN_SPEED);
+  return newVel;
 }

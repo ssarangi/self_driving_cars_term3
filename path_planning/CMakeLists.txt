@@ -14,6 +14,8 @@ set(sources
     src/vehicle.h
     src/utils.cpp
     src/utils.h
+    src/cost_function.h
+    src/cost_function.cpp
     src/json.hpp
     src/constants.h
     src/spline.h)
