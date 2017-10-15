@@ -69,11 +69,13 @@ private:
       const double oldRefVel);
 
   Path* createPointsForSpline(
+      const EgoVehicle *pEgoVehicle,
+      const int current_lane,
       const std::vector<double>& previous_path_x,
       const std::vector<double>& previous_path_y,
       double &ref_x,
       double &ref_y,
-      double &ref_yaw);
+      double &ref_yaw) const;
 
   std::unique_ptr<Path> interpolatePointsOnSpline(
       const std::vector<double>& previous_path_x,
@@ -81,11 +83,13 @@ private:
       const Path* pPointsOnSpline,
       const double ref_x,
       const double ref_y,
-      const double ref_yaw);
+      const double ref_yaw) const;
 
   std::unique_ptr<Path> createTrajectoryPoints(
+      const EgoVehicle *pEgoVehicle,
+      const int current_lane,
       const std::vector<double>& previous_path_x,
-      const std::vector<double>& previous_path_y);
+      const std::vector<double>& previous_path_y) const;
 
 
 private:

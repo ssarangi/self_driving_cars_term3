@@ -105,24 +105,26 @@ double PathPlanner::reduceOrIncreaseReferenceVelocity(
 }
 
 Path* PathPlanner::createPointsForSpline(
+    const EgoVehicle *pEgoVehicle,
+    const int current_lane,
     const std::vector<double> &previous_path_x,
     const std::vector<double> &previous_path_y,
     double &ref_x,
     double &ref_y,
-    double &ref_yaw) {
+    double &ref_yaw) const {
 
   Path *pPointsOnSpline = new Path();
   int prev_path_size = previous_path_x.size();
 
   if (prev_path_size < 2) {
-    double prev_car_x = m_pEgoVehicle->mX - cos(m_pEgoVehicle->mYaw);
-    double prev_car_y = m_pEgoVehicle->mY - sin(m_pEgoVehicle->mYaw);
+    double prev_car_x = pEgoVehicle->mX - cos(pEgoVehicle->mYaw);
+    double prev_car_y = pEgoVehicle->mY - sin(pEgoVehicle->mYaw);
 
     pPointsOnSpline->x_vals.push_back(prev_car_x);
-    pPointsOnSpline->x_vals.push_back(m_pEgoVehicle->mX);
+    pPointsOnSpline->x_vals.push_back(pEgoVehicle->mX);
 
     pPointsOnSpline->y_vals.push_back(prev_car_y);
-    pPointsOnSpline->y_vals.push_back(m_pEgoVehicle->mY);
+    pPointsOnSpline->y_vals.push_back(pEgoVehicle->mY);
   } else {
     ref_x = previous_path_x[prev_path_size - 1];
     ref_y = previous_path_y[prev_path_size - 1];
@@ -139,9 +141,9 @@ Path* PathPlanner::createPointsForSpline(
   }
 
   // In Frenet add evenly 30m spaced points ahead of the starting reference
-  vector<double> next_wp0 = getXY(m_pEgoVehicle->mS + 30, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
-  vector<double> next_wp1 = getXY(m_pEgoVehicle->mS + 60, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
-  vector<double> next_wp2 = getXY(m_pEgoVehicle->mS + 90, (2 + 4 * m_currentLane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp0 = getXY(pEgoVehicle->mS + 30, (2 + 4 * current_lane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp1 = getXY(pEgoVehicle->mS + 60, (2 + 4 * current_lane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp2 = getXY(pEgoVehicle->mS + 90, (2 + 4 * current_lane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
 
   pPointsOnSpline->x_vals.push_back(next_wp0[0]);
   pPointsOnSpline->x_vals.push_back(next_wp1[0]);
@@ -168,12 +170,12 @@ unique_ptr<Path> PathPlanner::interpolatePointsOnSpline(
     const Path *pPointsOnSpline,
     const double ref_x,
     const double ref_y,
-    const double ref_yaw) {
+    const double ref_yaw) const {
 
   // Create a spline
-  tk::spline s;
+  tk::spline spline;
 
-  s.set_points(pPointsOnSpline->x_vals, pPointsOnSpline->y_vals);
+  spline.set_points(pPointsOnSpline->x_vals, pPointsOnSpline->y_vals);
 
   Path *pTrajectory = new Path();
 
@@ -184,14 +186,14 @@ unique_ptr<Path> PathPlanner::interpolatePointsOnSpline(
 
   // Calculate how to break up spline points so that we travel at our desired reference velocity
   double target_x = 30.0;
-  double target_y = s(target_x);
+  double target_y = spline(target_x);
   double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
 
   double x_add_on= 0;
   double N = (target_dist / (0.02 * m_refVel/2.24));
   for (int i = 0; i <= 50 - previous_path_x.size(); ++i) {
     double x_point = x_add_on + (target_x) / N;
-    double y_point = s(x_point);
+    double y_point = spline(x_point);
 
     x_add_on = x_point;
 
@@ -214,20 +216,34 @@ unique_ptr<Path> PathPlanner::interpolatePointsOnSpline(
 }
 
 unique_ptr<Path> PathPlanner::createTrajectoryPoints(
+    const EgoVehicle *pEgoVehicle,
+    const int current_lane,
     const std::vector<double>& previous_path_x,
-    const std::vector<double>& previous_path_y) {
-
-  int prev_path_size = previous_path_x.size();
+    const std::vector<double>& previous_path_y) const {
 
   // Trajectory Generation.
   // These values are changed in these functions.
-  double ref_yaw = deg2rad(m_pEgoVehicle->mYaw);
-  double ref_x = m_pEgoVehicle->mX;
-  double ref_y = m_pEgoVehicle->mY;
+  double ref_yaw = deg2rad(pEgoVehicle->mYaw);
+  double ref_x = pEgoVehicle->mX;
+  double ref_y = pEgoVehicle->mY;
 
-  Path *pPointsForSpline = createPointsForSpline(previous_path_x, previous_path_y, ref_x, ref_y, ref_yaw);
+  Path *pPointsForSpline = createPointsForSpline(
+        pEgoVehicle,
+        current_lane,
+        previous_path_x,
+        previous_path_y,
+        ref_x,
+        ref_y,
+        ref_yaw);
 
-  auto p = interpolatePointsOnSpline(previous_path_x, previous_path_y, pPointsForSpline, ref_x, ref_y, ref_yaw);
+  auto p = interpolatePointsOnSpline(
+        previous_path_x,
+        previous_path_y,
+        pPointsForSpline,
+        ref_x,
+        ref_y,
+        ref_yaw);
+
   return p;
 }
 
@@ -247,9 +263,10 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   int prev_path_size = previous_path_x.size();
 
   double ego_car_s = prev_path_size > 0 ? end_path_s : car_s;
+  double ego_car_d = prev_path_size > 0 ? end_path_d : car_d;
 
   // Initialization of Ego Vehicle
-  initializeEgoVehicle(car_x, car_y, car_speed, ego_car_s, car_d, car_yaw);
+  initializeEgoVehicle(car_x, car_y, car_speed, ego_car_s, ego_car_d, car_yaw);
 
   // Initialize the traffic. Create Vehicle objects for the id's not yet seen and then find out the closest
   // vehicles and get them in a vector.
@@ -261,6 +278,10 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   // Change the reference velocity based on whether there are cars or not.
   m_refVel = reduceOrIncreaseReferenceVelocity(too_close, m_refVel);
 
-  auto p = createTrajectoryPoints(previous_path_x, previous_path_y);
+  auto p = createTrajectoryPoints(
+        m_pEgoVehicle,
+        m_currentLane,
+        previous_path_x,
+        previous_path_y);
   return p;
 }
