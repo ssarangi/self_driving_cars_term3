@@ -44,8 +44,6 @@ void PathPlanner::initializeTraffic(
     float d = m_IdToVehicle[id]->d;
     int lane_id = getLaneId(d);
     if (lane_id >= 0 && lane_id <= 2) {
-      // Found car in lane
-      cout << "Found car in lane: " << lane_id << " for d: " << d << endl;
       m_LaneIdToVehicles[lane_id].push_back(m_IdToVehicle[id]);
     }
   }
