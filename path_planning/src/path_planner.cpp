@@ -87,14 +87,21 @@ bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
   return too_close;
 }
 
-void PathPlanner::reduceOrIncreaseReferenceVelocity(bool too_close) {
+// Change the reference velocity for any vehicle.
+double PathPlanner::reduceOrIncreaseReferenceVelocity(
+    const bool too_close,
+    const double oldRefVel) {
+  double newRefVel = oldRefVel;
+
   if (too_close) {
-    m_refVel -= 0.224;
-    m_refVel = max(m_refVel, 0.0);
-  } else if (m_refVel < 49.5) {
-    m_refVel += 0.224;
-    m_refVel = min(m_refVel, MAX_SPEED);
+    newRefVel -= 0.224;
+    newRefVel = max(newRefVel, 0.0);
+  } else if (oldRefVel < 49.5) {
+    newRefVel += 0.224;
+    newRefVel = min(newRefVel, MAX_SPEED);
   }
+
+  return newRefVel;
 }
 
 Path* PathPlanner::createPointsForSpline(
@@ -251,7 +258,8 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   // Check CLoseness with other cars.
   bool too_close = checkClosenessToOtherCarsAndChangeLanes(sensor_fusion, prev_path_size, car_s);
 
-  reduceOrIncreaseReferenceVelocity(too_close);
+  // Change the reference velocity based on whether there are cars or not.
+  m_refVel = reduceOrIncreaseReferenceVelocity(too_close, m_refVel);
 
   auto p = createTrajectoryPoints(previous_path_x, previous_path_y);
   return p;

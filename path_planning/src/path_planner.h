@@ -64,7 +64,16 @@ private:
     const int previous_iteration_points_left,
     const double car_s);
 
-  void reduceOrIncreaseReferenceVelocity(bool too_close);
+  static double reduceOrIncreaseReferenceVelocity(
+      const bool too_close,
+      const double oldRefVel);
+
+  Path* createPointsForSpline(
+      const std::vector<double>& previous_path_x,
+      const std::vector<double>& previous_path_y,
+      double &ref_x,
+      double &ref_y,
+      double &ref_yaw);
 
   std::unique_ptr<Path> interpolatePointsOnSpline(
       const std::vector<double>& previous_path_x,
@@ -73,13 +82,6 @@ private:
       const double ref_x,
       const double ref_y,
       const double ref_yaw);
-
-  Path* createPointsForSpline(
-      const std::vector<double>& previous_path_x,
-      const std::vector<double>& previous_path_y,
-      double &ref_x,
-      double &ref_y,
-      double &ref_yaw);
 
   std::unique_ptr<Path> createTrajectoryPoints(
       const std::vector<double>& previous_path_x,
