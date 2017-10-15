@@ -3,6 +3,8 @@
 #include <memory>
 #include <cstring>
 #include <assert.h>
+#include <iostream>
+#include <algorithm>
 
 #include "spline.h"
 #include "path_planner.h"
@@ -24,17 +26,28 @@ void PathPlanner::initializeEgoVehicle(
 
 void PathPlanner::initializeTraffic(
   const std::vector<std::vector<double>>& sensor_fusion) {
+  m_LaneIdToVehicles.clear();
+
   // First find out
   int total_vehicles = sensor_fusion.size();
   for (int i = 0; i < total_vehicles; ++i) {
     int id = sensor_fusion[i][0];
-    const vector_ptr pData = static_cast<vector_ptr>(&sensor_fusion[i]);
     if (m_IdToVehicle.find(id) == m_IdToVehicle.end()) {
       m_IdToVehicle[id] = new Vehicle();
     }
 
-    assert(pData->size() * sizeof(double) == sizeof(Vehicle));
-    memcpy(m_IdToVehicle[id], pData, pData->size() * sizeof(double));
+    assert(sensor_fusion[0].size() * sizeof(double) == sizeof(Vehicle));
+    // Copy the data from Sensor fusion to the vehicles
+    m_IdToVehicle[id]->setData(sensor_fusion[i]);
+
+    // Arrange the vehicles with the lanes
+    float d = m_IdToVehicle[id]->d;
+    int lane_id = getLaneId(d);
+    if (lane_id >= 0 && lane_id <= 2) {
+      // Found car in lane
+      cout << "Found car in lane: " << lane_id << " for d: " << d << endl;
+      m_LaneIdToVehicles[lane_id].push_back(m_IdToVehicle[id]);
+    }
   }
 }
 
@@ -42,37 +55,46 @@ bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
         const vector<vector<double>>& sensor_fusion,
         const int previous_iteration_points_left,
         const double car_s) {
-  // Check CLoseness with other cars.
+  // Check closeness with other cars.
   bool too_close = false;
 
+  // Check only the cars in the current lane
+  vector<Vehicle*> vehicles_in_ego_car_lane = m_LaneIdToVehicles[m_currentLane];
+  if (vehicles_in_ego_car_lane.size() > 0)
+    cout << "Found " << vehicles_in_ego_car_lane.size() << " cars in lane: " << m_currentLane << endl;
   for (int i = 0; i < sensor_fusion.size(); ++i) {
     float d = sensor_fusion[i][6];
-
-    if (d < (2+4*m_currentLane+2) && d > (2+4*m_currentLane-2)) {
-      double vx = sensor_fusion[i][3];
-      double vy = sensor_fusion[i][4];
-      double check_speed = sqrt(vx * vx + vy * vy);
-      double check_car_s = sensor_fusion[i][5];
-
-      check_car_s += ((double)previous_iteration_points_left * 0.02 * check_speed); // If using previous points can project s value output
-      if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
-        too_close = true;
-        if (m_currentLane > 0)
-          m_currentLane -= 1;
-        else if (m_currentLane < 3)
-          m_currentLane += 1;
-      }
-    }
+    cout << "D: " << d << endl;
   }
 
+   for (Vehicle* vehicle : vehicles_in_ego_car_lane) {
+    double vx = vehicle->vx;
+    double vy = vehicle->vy;
+    double check_car_s = vehicle->s;
+    double check_speed = sqrt(vx * vx + vy * vy);
+
+    check_car_s += ((double)previous_iteration_points_left * 0.02 * check_speed); // If using previous points can project s value output
+    if ((check_car_s > m_pEgoVehicle->mS) && ((check_car_s - m_pEgoVehicle->mS) < SAFE_DISTANCE_TO_MAINTAIN)) {
+      too_close = true;
+      if (m_currentLane > 0) {
+        m_currentLane -= 1;
+      } else if (m_currentLane < 2) {
+        m_currentLane += 1;
+      }
+      cout << "Changed lane to " << m_currentLane << endl;
+    }
+  }
   return too_close;
 }
 
 void PathPlanner::reduceOrIncreaseReferenceVelocity(bool too_close) {
-  if (too_close)
-    m_refVel -= 0.224 ;
-  else if (m_refVel < 49.5)
+  if (too_close) {
+    m_refVel -= 0.224;
+    m_refVel = max(m_refVel, 0.0);
+  } else if (m_refVel < 49.5) {
     m_refVel += 0.224;
+    m_refVel = min(m_refVel, MAX_SPEED);
+  }
 }
 
 Path* PathPlanner::createPointsForSpline(

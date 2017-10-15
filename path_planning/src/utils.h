@@ -5,6 +5,8 @@
 #include <string>
 #include <math.h>
 
+#include "constants.h"
+
 // For converting back and forth between radians and degrees.
 inline constexpr double pi() { return M_PI; }
 inline double deg2rad(double x) { return x * pi() / 180; }
@@ -25,5 +27,7 @@ std::vector<double> getFrenet(double x, double y, double theta, const std::vecto
 
 // Transform from Frenet s,d coordinates to Cartesian x,y.
 std::vector<double> getXY(double s, double d, const std::vector<double> &maps_s, const std::vector<double> &maps_x, const std::vector<double> &maps_y);
+
+int getLaneId(double d);
 
 #endif

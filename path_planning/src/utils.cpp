@@ -140,5 +140,9 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
   double y = seg_y + d*sin(perp_heading);
 
   return {x,y};
+}
 
+int getLaneId(double d) {
+  int lane_id = (int)(d / LANE_WIDTH);
+  return lane_id;
 }

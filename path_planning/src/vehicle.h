@@ -1,6 +1,7 @@
 #ifndef VECHICLE_H
 #define VECHICLE_H
 
+#include <vector>
 #include "constants.h"
 
 struct EgoVehicle {
@@ -36,6 +37,16 @@ struct Vehicle {
   double vy;
   double s;
   double d;
+
+  void setData(const std::vector<double>& data) {
+    id = data[0];
+    x = data[1];
+    y = data[2];
+    vx = data[3];
+    vy = data[4];
+    s = data[5];
+    d = data[6];
+  }
 };
 
 #endif // VECHICLE_H

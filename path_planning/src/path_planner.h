@@ -95,6 +95,7 @@ private:
   std::vector<double> m_mapWaypoints_y;
   std::vector<double> m_mapWaypoints_s;
   std::unordered_map<int, Vehicle*> m_IdToVehicle;
+  std::unordered_map<int, std::vector<Vehicle*>> m_LaneIdToVehicles;
   std::vector<const Vehicle*> m_currentIterationTraffic;
 };
 
