@@ -60,9 +60,7 @@ private:
   void initializeTraffic(const std::vector<std::vector<double>>& sensor_fusion);
 
   bool checkClosenessToOtherCarsAndChangeLanes(
-    const std::vector<std::vector<double>>& sensor_fusion,
-    const int previous_iteration_points_left,
-    const double car_s);
+    const int previous_iteration_points_left);
 
   static double reduceOrIncreaseReferenceVelocity(
       const bool too_close,

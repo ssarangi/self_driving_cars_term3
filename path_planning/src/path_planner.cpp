@@ -50,22 +50,14 @@ void PathPlanner::initializeTraffic(
 }
 
 bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
-        const vector<vector<double>>& sensor_fusion,
-        const int previous_iteration_points_left,
-        const double car_s) {
+        const int previous_iteration_points_left) {
   // Check closeness with other cars.
   bool too_close = false;
 
   // Check only the cars in the current lane
   vector<Vehicle*> vehicles_in_ego_car_lane = m_LaneIdToVehicles[m_currentLane];
-  if (vehicles_in_ego_car_lane.size() > 0)
-    cout << "Found " << vehicles_in_ego_car_lane.size() << " cars in lane: " << m_currentLane << endl;
-  for (int i = 0; i < sensor_fusion.size(); ++i) {
-    float d = sensor_fusion[i][6];
-    cout << "D: " << d << endl;
-  }
 
-   for (Vehicle* vehicle : vehicles_in_ego_car_lane) {
+  for (Vehicle* vehicle : vehicles_in_ego_car_lane) {
     double vx = vehicle->vx;
     double vy = vehicle->vy;
     double check_car_s = vehicle->s;
@@ -82,6 +74,7 @@ bool PathPlanner::checkClosenessToOtherCarsAndChangeLanes(
       cout << "Changed lane to " << m_currentLane << endl;
     }
   }
+
   return too_close;
 }
 
@@ -271,7 +264,7 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   initializeTraffic(sensor_fusion);
 
   // Check CLoseness with other cars.
-  bool too_close = checkClosenessToOtherCarsAndChangeLanes(sensor_fusion, prev_path_size, car_s);
+  bool too_close = checkClosenessToOtherCarsAndChangeLanes(prev_path_size);
 
   // Change the reference velocity based on whether there are cars or not.
   m_refVel = reduceOrIncreaseReferenceVelocity(too_close, m_refVel);
