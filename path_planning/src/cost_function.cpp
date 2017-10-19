@@ -56,6 +56,7 @@ double collision_cost(const Path *pPath,
   assert(current_lane != target_lane);
   int lower = min(current_lane, target_lane);
   int higher = max(current_lane, target_lane);
+  double cost = 0.0;
 
   for (int lane = lower; lane <= higher; ++lane) {
     vector<Vehicle*> const cars_in_lane = laneIdToVehicles.at(lane);
@@ -64,16 +65,34 @@ double collision_cost(const Path *pPath,
       // First figure out the speed of the other car
       double car_speed_s = get_car_speed(pCar);
       int total_points = pPath->x_vals.size();
+      double angle = pEgoVehicle->mYaw;
       for (int t = 0; t < total_points; ++t) {
         double tx = pPath->x_vals[t];
         double ty = pPath->y_vals[t];
 
-        vector<double> ego_future_s = getFrenet(tx, ty, pEgoVehicle->mYaw, maps_x, maps_y);
+        vector<double> ego_future_sd = getFrenet(tx, ty, angle, maps_x, maps_y);
+        // compute if there is any chance of collision with the other car
+        double ego_s = ego_future_sd[0];
+        double ego_d = ego_future_sd[1];
+
+        // Assuming constant velocity of the other car find out where that car should be
+        // at time t.
+        double other_car_s = pCar->s + car_speed_s * t;
+
+        double distance = sqrt((ego_s - other_car_s) * (ego_s - pCar->s) + (ego_d - pCar->d) * (ego_d - pCar->d));
+        if (distance < 2 * CAR_RADIUS) {
+          // We have a collision here. Penalize the cost.
+          cost += logistic(distance * 10.0);
+        }
+
+        if (t < total_points) {
+          angle = deg2rad(atan(pPath->x_vals[t+1] - tx / pPath->y_vals[t+1] - ty));
+        }
       }
     }
   }
 
-  return 0.0;
+  return cost;
 }
 
 double compute_cost(const Path *pPath,

@@ -6,9 +6,11 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+#include <limits>
 
 #include "spline.h"
 #include "path_planner.h"
+#include "cost_function.h"
 #include "utils.h"
 
 using namespace std;
@@ -293,9 +295,33 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   vector<EgoVehicleNewState*> possibleEgoVehicleNewStates;
   tie(too_close, possibleEgoVehicleNewStates) = checkClosenessToOtherCarsAndChangeLanes(prev_path_size);
 
+  double min_cost = numeric_limits<double>::max();
+
   if (possibleEgoVehicleNewStates.size() > 0) {
-    EgoVehicleNewState *pNewState = selectRandomLane(possibleEgoVehicleNewStates);
-    implementLaneChange(pNewState->new_lane);
+    int best_lane = m_currentLane;
+    // For each trajectory generated find out the cost function.
+    for (auto state : possibleEgoVehicleNewStates) {
+      unique_ptr<Path> pPath = createTrajectoryPoints(
+            m_pEgoVehicle,
+            state->new_lane,
+            previous_path_x,
+            previous_path_y);
+
+      double current_cost = compute_cost(pPath,
+                   m_pEgoVehicle,
+                   m_currentLane,
+                   state->new_lane,
+                   m_LaneIdToVehicles,
+                   m_mapWaypoints_x,
+                   m_mapWaypoints_y);
+
+      if (current_cost < min_cost) {
+        best_lane = state->new_lane;
+      }
+    }
+
+    // EgoVehicleNewState *pNewState = selectRandomLane(possibleEgoVehicleNewStates);
+    implementLaneChange(best_lane);
   }
 
   // Change the reference velocity based on whether there are cars or not.

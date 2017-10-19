@@ -28,5 +28,6 @@ const int    MAX_RIGHT_LANE = 2;
 const int    FARTHEST_LEFT_LANE = 0;
 const int    FARTHEST_RIGHT_LANE = 2;
 const int    MIDDLE_LANE = (FARTHEST_LEFT_LANE + FARTHEST_RIGHT_LANE) / 2;
+const int    CAR_RADIUS = 2; // m
 
 #endif // CONSTANTS_H
