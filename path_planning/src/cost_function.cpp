@@ -1,6 +1,7 @@
 #include <math.h>
 #include <vector>
 #include <assert.h>
+#include <iostream>
 
 #include "vehicle.h"
 #include "constants.h"
@@ -17,11 +18,8 @@ double logistic(double x) {
 double get_car_speed(Vehicle *pCar) {
   double vx = pCar->vx;
   double vy = pCar->vy;
-  double check_car_s = pCar->s;
   double check_speed = sqrt(vx * vx + vy * vy);
-
-  check_car_s += 0.02 * check_speed;
-  return check_car_s;
+  return check_speed;
 }
 
 double not_in_middle_lane_cost(const int target_lane) {
@@ -31,6 +29,9 @@ double not_in_middle_lane_cost(const int target_lane) {
 double too_many_cars_in_target_lane_cost(const int target_lane,
                                          const unordered_map<int, vector<Vehicle*>>& laneIdToVehicles) {
   // Penalize the lanes based on the number of cars and on the avg speed of the cars.
+ if (laneIdToVehicles.find(target_lane) != laneIdToVehicles.end())
+   return 0.0;
+
   vector<Vehicle*> cars_in_target_lane = laneIdToVehicles.at(target_lane);
   int num_cars = cars_in_target_lane.size();
 
@@ -53,40 +54,30 @@ double collision_cost(const Path *pPath,
                       const unordered_map<int, vector<Vehicle*>>& laneIdToVehicles,
                       const vector<double> &maps_x,
                       const vector<double> &maps_y) {
-  assert(current_lane != target_lane);
-  int lower = min(current_lane, target_lane);
-  int higher = max(current_lane, target_lane);
+  int lower = min(current_lane + 1, target_lane);
+  int higher = max(current_lane + 1, target_lane);
   double cost = 0.0;
 
-  for (int lane = lower; lane <= higher; ++lane) {
+  for (int lane = lower; lane < higher; ++lane) {
     vector<Vehicle*> const cars_in_lane = laneIdToVehicles.at(lane);
     for (Vehicle* pCar : cars_in_lane) {
       // Find out if the car can hit of any of the ego car's trajectory
       // First figure out the speed of the other car
       double car_speed_s = get_car_speed(pCar);
       int total_points = pPath->x_vals.size();
-      double angle = pEgoVehicle->mYaw;
       for (int t = 0; t < total_points; ++t) {
         double tx = pPath->x_vals[t];
         double ty = pPath->y_vals[t];
 
-        vector<double> ego_future_sd = getFrenet(tx, ty, angle, maps_x, maps_y);
-        // compute if there is any chance of collision with the other car
-        double ego_s = ego_future_sd[0];
-        double ego_d = ego_future_sd[1];
-
         // Assuming constant velocity of the other car find out where that car should be
         // at time t.
-        double other_car_s = pCar->s + car_speed_s * t;
+        double distance = sqrt((tx - pCar->vx * t) * (tx - pCar->vx * t) +
+                               (ty - pCar->vy * t) * (ty - pCar->vy * t));
 
-        double distance = sqrt((ego_s - other_car_s) * (ego_s - pCar->s) + (ego_d - pCar->d) * (ego_d - pCar->d));
-        if (distance < 2 * CAR_RADIUS) {
+        if (distance < 2 * 1000.0) {
           // We have a collision here. Penalize the cost.
-          cost += logistic(distance * 10.0);
-        }
-
-        if (t < total_points) {
-          angle = deg2rad(atan(pPath->x_vals[t+1] - tx / pPath->y_vals[t+1] - ty));
+          cost += logistic(1/distance);
+          cout << "Collision cost: " << cost << endl;
         }
       }
     }
@@ -95,16 +86,80 @@ double collision_cost(const Path *pPath,
   return cost;
 }
 
+//double collision_cost(const Path *pPath,
+//                      const EgoVehicle *pEgoVehicle,
+//                      const int current_lane,
+//                      const int target_lane,
+//                      const unordered_map<int, vector<Vehicle*>>& laneIdToVehicles,
+//                      const vector<double> &maps_x,
+//                      const vector<double> &maps_y) {
+//  int lower = min(current_lane + 1, target_lane);
+//  int higher = max(current_lane + 1, target_lane);
+//  double cost = 0.0;
+
+//  for (int lane = lower; lane < higher; ++lane) {
+//    vector<Vehicle*> const cars_in_lane = laneIdToVehicles.at(lane);
+//    for (Vehicle* pCar : cars_in_lane) {
+//      // Find out if the car can hit of any of the ego car's trajectory
+//      // First figure out the speed of the other car
+//      double car_speed_s = get_car_speed(pCar);
+//      int total_points = pPath->x_vals.size();
+//      double angle = pEgoVehicle->mYaw;
+//      for (int t = 0; t < total_points; ++t) {
+//        double tx = pPath->x_vals[t];
+//        double ty = pPath->y_vals[t];
+
+//        vector<double> ego_future_sd = getFrenet(tx, ty, angle, maps_x, maps_y);
+//        // compute if there is any chance of collision with the other car
+//        double ego_s = ego_future_sd[0];
+//        double ego_d = ego_future_sd[1];
+
+//        // Assuming constant velocity of the other car find out where that car should be
+//        // at time t.
+//        double other_car_s = pCar->s + car_speed_s * t * 0.02;
+
+//        double distance = sqrt((ego_s - other_car_s) * (ego_s - other_car_s) + (ego_d - pCar->d) * (ego_d - pCar->d));
+//        //cout << "Distance: " << distance << endl;
+//        if (distance < 2 * 50.0) {
+//          // We have a collision here. Penalize the cost.
+//          cost += logistic(distance);
+//        }
+//      }
+//    }
+//  }
+
+//  return cost;
+//}
+
+double less_than_optimum_velocity(double current_velocity) {
+  double cost = logistic(sqrt((current_velocity - MAX_SPEED) * (current_velocity - MAX_SPEED)));
+  return cost;
+}
+
 double compute_cost(const Path *pPath,
                     const EgoVehicle *pEgoVehicle,
                     const int current_lane,
                     const int target_lane,
+                    const double target_speed,
                     const unordered_map<int, vector<Vehicle *>> &laneIdToVehicles,
                     const vector<double> &maps_x,
                     const vector<double> &maps_y) {
   double cost = 0;
-  cost += not_in_middle_lane_cost(target_lane);
-  cost += too_many_cars_in_target_lane_cost(target_lane, laneIdToVehicles);
-  cost += collision_cost(pPath, pEgoVehicle, current_lane, target_lane, laneIdToVehicles, maps_x, maps_y);
+  double cost_not_in_middle_lane = not_in_middle_lane_cost(target_lane);
+  // cout << "Not in middle lane: " << cost_not_in_middle_lane << endl;
+  double cost_too_many_cars_in_target_lane = too_many_cars_in_target_lane_cost(target_lane, laneIdToVehicles);
+  // cout << "Too many cars in target lane: " << cost_too_many_cars_in_target_lane << endl;
+  double cost_collision = collision_cost(pPath,
+                                         pEgoVehicle,
+                                         current_lane,
+                                         target_lane,
+                                         laneIdToVehicles,
+                                         maps_x,
+                                         maps_y);
+  cout << "Collision cost for lane " << target_lane << ": " << cost_collision << endl;
+
+  double cost_less_than_optimum_velocity = less_than_optimum_velocity(target_speed);
+
+  cost = cost_not_in_middle_lane + cost_too_many_cars_in_target_lane + cost_collision + cost_less_than_optimum_velocity;
   return cost;
 }

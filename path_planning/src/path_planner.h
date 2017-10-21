@@ -60,6 +60,11 @@ public:
       const std::vector<std::vector<double>>& sensor_fusion);
 
 private:
+  double computeCostForTrajectory(
+      EgoVehicleNewState *pNewState,
+      const std::vector<double>& previous_path_x,
+      const std::vector<double>& previous_path_y);
+
   void initializeEgoVehicle(
       const double x,
       const double y,

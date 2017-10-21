@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <random>
 #include <limits>
+#include <thread>
+#include <future>
 
 #include "spline.h"
 #include "path_planner.h"
@@ -16,6 +18,28 @@
 using namespace std;
 
 typedef const vector<double>* vector_ptr;
+
+double PathPlanner::computeCostForTrajectory(
+    EgoVehicleNewState *pNewState,
+    const vector<double>& previous_path_x,
+    const vector<double>& previous_path_y) {
+  unique_ptr<Path> pPath = createTrajectoryPoints(
+        m_pEgoVehicle,
+        pNewState->new_lane,
+        previous_path_x,
+        previous_path_y);
+
+  double current_cost = compute_cost(pPath.get(),
+               m_pEgoVehicle,
+               m_currentLane,
+               pNewState->new_lane,
+               pNewState->refVel,
+               m_LaneIdToVehicles,
+               m_mapWaypoints_x,
+               m_mapWaypoints_y);
+
+  return current_cost;
+}
 
 void PathPlanner::initializeEgoVehicle(
     const double x,
@@ -75,15 +99,21 @@ tuple<bool, vector<EgoVehicleNewState*>> PathPlanner::checkClosenessToOtherCarsA
       int farthestRightLane = FARTHEST_RIGHT_LANE;
 
       if (m_currentLane == FARTHEST_LEFT_LANE) {
-        farthestLeftLane = 1;
-        farthestRightLane = FARTHEST_RIGHT_LANE;
+        farthestLeftLane = m_currentLane;
+        farthestRightLane = m_currentLane + 1;
       } else if (m_currentLane == MAX_RIGHT_LANE) {
-        farthestLeftLane = FARTHEST_LEFT_LANE;
-        farthestRightLane = FARTHEST_RIGHT_LANE - 1;
+        farthestLeftLane = m_currentLane - 1;
+        farthestRightLane = m_currentLane;
+      } else {
+        farthestLeftLane = m_currentLane - 1;
+        farthestRightLane = m_currentLane + 1;
       }
 
       for (int i = farthestLeftLane; i <= farthestRightLane; ++i) {
-        ego_vehicle_states.push_back(new EgoVehicleNewState(i, m_refVel));
+        double newVel = m_refVel;
+        // Increase velocity if changing lanes otherwise reduce speed if continuing on the same lane
+        newVel = reduceOrIncreaseReferenceVelocity(i == m_currentLane, m_refVel);
+        ego_vehicle_states.push_back(new EgoVehicleNewState(i, newVel));
       }
     }
   }
@@ -98,9 +128,9 @@ double PathPlanner::reduceOrIncreaseReferenceVelocity(
   double newRefVel = oldRefVel;
 
   if (too_close) {
-    newRefVel -= INCREASE_VEL_FACTOR;
+    newRefVel -= VEL_FACTOR;
   } else if (oldRefVel < MAX_SPEED) {
-    newRefVel += INCREASE_VEL_FACTOR;
+    newRefVel += VEL_FACTOR;
   }
 
   newRefVel = changeVelocity(newRefVel);
@@ -295,34 +325,59 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   vector<EgoVehicleNewState*> possibleEgoVehicleNewStates;
   tie(too_close, possibleEgoVehicleNewStates) = checkClosenessToOtherCarsAndChangeLanes(prev_path_size);
 
-  double min_cost = numeric_limits<double>::max();
+#ifdef MULTITHREADED
+  vector<future<double>> future_results;
+#else
+  vector<double> future_results;
+#endif
 
   if (possibleEgoVehicleNewStates.size() > 0) {
-    int best_lane = m_currentLane;
-    // For each trajectory generated find out the cost function.
-    for (auto state : possibleEgoVehicleNewStates) {
-      unique_ptr<Path> pPath = createTrajectoryPoints(
-            m_pEgoVehicle,
-            state->new_lane,
+      for (int i = 0; i < possibleEgoVehicleNewStates.size(); ++i) {
+      EgoVehicleNewState *pNewState = possibleEgoVehicleNewStates[i];
+#ifdef MULTITHREADED
+      future<double> res = async(&PathPlanner::computeCostForTrajectory,
+                                 this,
+                                 pNewState,
+                                 previous_path_x,
+                                 previous_path_y);
+      future_results.push_back(std::move(res));
+      double cost = computeCostForTrajectory(
+            this,
+            pNewState,
             previous_path_x,
             previous_path_y);
-
-      double current_cost = compute_cost(pPath,
-                   m_pEgoVehicle,
-                   m_currentLane,
-                   state->new_lane,
-                   m_LaneIdToVehicles,
-                   m_mapWaypoints_x,
-                   m_mapWaypoints_y);
-
-      if (current_cost < min_cost) {
-        best_lane = state->new_lane;
-      }
+      future_results.push_back(cost);
+#else
+      double cost = computeCostForTrajectory(
+            pNewState,
+            previous_path_x,
+            previous_path_y);
+      future_results.push_back(cost);
+#endif
     }
-
-    // EgoVehicleNewState *pNewState = selectRandomLane(possibleEgoVehicleNewStates);
-    implementLaneChange(best_lane);
   }
+
+  double min_cost = numeric_limits<double>::max();
+
+  int best_lane = m_currentLane;
+  for (int i = 0; i < future_results.size(); ++i) {
+#ifdef MULTITHREADED
+    double current_cost = future_results[i].get();
+#else
+    double current_cost = future_results[i];
+#endif
+
+    cout << "Lane: " << i << " Cost: " << current_cost << endl;
+    // For each trajectory generated find out the cost function.
+    if (current_cost < min_cost) {
+      best_lane = possibleEgoVehicleNewStates[i]->new_lane;
+      min_cost = current_cost;
+    }
+  }
+
+  cout << "-----------------------------------------------------" << endl;
+  // EgoVehicleNewState *pNewState = selectRandomLane(possibleEgoVehicleNewStates);
+  implementLaneChange(best_lane);
 
   // Change the reference velocity based on whether there are cars or not.
   m_refVel = reduceOrIncreaseReferenceVelocity(too_close, m_refVel);
