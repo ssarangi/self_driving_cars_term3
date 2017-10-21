@@ -40,7 +40,7 @@ public:
     m_mapWaypoints_y = map_waypoints_y;
     m_mapWaypoints_s = map_waypoints_s;
     m_pEgoVehicle = new EgoVehicle();
-    counter = 0;
+    m_counter = 0;
   }
   ~PathPlanner() {
     // Free up all the objects we allocated
@@ -75,12 +75,13 @@ private:
 
   void initializeTraffic(const std::vector<std::vector<double>>& sensor_fusion);
 
-  std::tuple<bool, std::vector<EgoVehicleNewState*>> checkClosenessToOtherCarsAndChangeLanes(
+  std::vector<EgoVehicleNewState*> checkClosenessToOtherCarsAndChangeLanes(
     const int previous_iteration_points_left);
 
   static double reduceOrIncreaseReferenceVelocity(
       const bool too_close,
-      const double oldRefVel);
+      const double oldRefVel,
+      const double reduce_or_increase_by);
 
   Path* createPointsForSpline(
       const EgoVehicle *pEgoVehicle,
@@ -108,10 +109,10 @@ private:
   EgoVehicleNewState* selectRandomLane(
       const std::vector<EgoVehicleNewState*>& possibleEgoVehicleNewStates) const;
 
-  void implementLaneChange(int new_lane);
+  void implementBestNewState(const int new_lane, const double new_vel);
 
 private:
-  int counter;
+  int m_counter;
   EgoVehicle *m_pEgoVehicle;
   int m_currentLane;
   double m_refVel;

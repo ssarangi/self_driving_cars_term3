@@ -24,7 +24,6 @@ const double MIN_SPEED = 0.0;
 const double LANE_WIDTH = 4; // m
 const double SAFE_DISTANCE_TO_MAINTAIN = 30; // m
 const double VEL_FACTOR = 0.224; // Increase or decrease velocity by this factor
-const int    MAX_RIGHT_LANE = 2;
 const int    FARTHEST_LEFT_LANE = 0;
 const int    FARTHEST_RIGHT_LANE = 2;
 const int    MIDDLE_LANE = (FARTHEST_LEFT_LANE + FARTHEST_RIGHT_LANE) / 2;
