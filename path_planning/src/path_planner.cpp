@@ -100,16 +100,16 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
 
       if (m_currentLane == FARTHEST_LEFT_LANE) {
         farthestLeftLane = m_currentLane;
-        // farthestRightLane = m_currentLane + 1;
-        farthestRightLane = FARTHEST_RIGHT_LANE;
+        farthestRightLane = m_currentLane + 1;
       } else if (m_currentLane == FARTHEST_RIGHT_LANE) {
-        // farthestLeftLane = m_currentLane - 1;
-        farthestLeftLane = FARTHEST_LEFT_LANE;
+        farthestLeftLane = m_currentLane - 1;
         farthestRightLane = m_currentLane;
       } else {
         farthestLeftLane = m_currentLane - 1;
         farthestRightLane = m_currentLane + 1;
       }
+
+      cout << "Farthest Left: " << farthestLeftLane << " Farthest Right: " << farthestRightLane << endl;
 
       for (int i = farthestLeftLane; i <= farthestRightLane; ++i) {
         double newVel = m_refVel;
@@ -132,6 +132,7 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
     ego_vehicle_states.push_back(new EgoVehicleNewState(m_currentLane, newVel));
   }
 
+  assert(ego_vehicle_states.size() <= 3);
   return ego_vehicle_states;
 }
 
@@ -391,7 +392,7 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
       double current_cost = future_results[i];
 #endif
 
-      cout << "Lane: " << i << " Cost: " << current_cost;
+      cout << "Lane: " << possibleEgoVehicleNewStates[i]->new_lane << " Cost: " << current_cost;
       if (i == m_currentLane)
         cout << " <--- Current Lane";
       cout << endl;
@@ -404,7 +405,7 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
     }
   }
 
-  if (possibleEgoVehicleNewStates.size() > 0) {
+  if (possibleEgoVehicleNewStates.size() > 1) {
     cout << "Total States: " << possibleEgoVehicleNewStates.size() << endl;
     cout << "Choosing Best Lane: " << best_lane << endl;
     cout << "-----------------------------------------------------" << endl;
