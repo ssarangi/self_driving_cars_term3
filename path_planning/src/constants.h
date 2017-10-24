@@ -28,5 +28,6 @@ const int    FARTHEST_LEFT_LANE = 0;
 const int    FARTHEST_RIGHT_LANE = 2;
 const int    MIDDLE_LANE = (FARTHEST_LEFT_LANE + FARTHEST_RIGHT_LANE) / 2;
 const int    CAR_RADIUS = 2; // m
+const double XY_SAFE_DISTANCE = 1500.0;
 
 #endif // CONSTANTS_H

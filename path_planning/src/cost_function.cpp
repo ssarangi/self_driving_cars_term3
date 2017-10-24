@@ -24,7 +24,7 @@ double get_car_speed(Vehicle *pCar) {
 }
 
 double not_in_middle_lane_cost(const int target_lane) {
-  return 0.5 * abs(target_lane - MIDDLE_LANE);
+  return 0.01 * abs(target_lane - MIDDLE_LANE);
 }
 
 double too_many_cars_in_target_lane_cost(const int target_lane,
@@ -84,7 +84,10 @@ double collision_cost(const Path *pPath,
         double distance = sqrt((tx - pCar->vx * t) * (tx - pCar->vx * t) +
                                (ty - pCar->vy * t) * (ty - pCar->vy * t));
 
-        if (distance < 2 * 1000.0 && t < best_t) {
+        if (lane != current_lane)
+          cout << "Distance: " << distance << " Lane: " << lane << endl;
+
+        if (distance < XY_SAFE_DISTANCE && t < best_t) {
           // We have a collision here. Penalize the cost.
           // cost = exp(-(t * t));
           cost = total_points / (t + 1);

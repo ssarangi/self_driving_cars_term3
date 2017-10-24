@@ -67,13 +67,27 @@ void PathPlanner::initializeTraffic(
     // Copy the data from Sensor fusion to the vehicles
     m_IdToVehicle[id]->setData(sensor_fusion[i]);
 
-    // Arrange the vehicles with the lanes
-    float d = m_IdToVehicle[id]->d;
-    int lane_id = getLaneId(d);
-    if (lane_id >= 0 && lane_id <= 2) {
-      m_LaneIdToVehicles[lane_id].push_back(m_IdToVehicle[id]);
+
+    if (abs(m_IdToVehicle[id]->s - m_pEgoVehicle->mS) <= SAFE_DISTANCE_TO_MAINTAIN) {
+      // Arrange the vehicles with the lanes
+      float d = m_IdToVehicle[id]->d;
+      int lane_id = getLaneId(d);
+      if (lane_id >= 0 && lane_id <= 2) {
+        m_LaneIdToVehicles[lane_id].push_back(m_IdToVehicle[id]);
+      }
     }
   }
+
+  cout << "=======================================================" << endl;
+  // Show number of cars only in neighboring lanes
+  int lane_left = m_currentLane - 1;
+  int lane_right = m_currentLane + 1;
+
+  if (m_LaneIdToVehicles.find(lane_left) != m_LaneIdToVehicles.end())
+    cout << "Cars in lane: " << lane_left << " --> " << m_LaneIdToVehicles[lane_left].size() << endl;
+  if (m_LaneIdToVehicles.find(lane_right) != m_LaneIdToVehicles.end())
+    cout << "Cars in lane: " << lane_right << " --> " << m_LaneIdToVehicles[lane_right].size() << endl;
+  cout << "=======================================================" << endl;
 }
 
 // Check if the ego vehicle is close to other cars in the same lane.
@@ -117,7 +131,9 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
         if (i == m_currentLane) {
           // Reduce the velocity by a factor of how close we are to the other vehicle
           double factor = ((check_car_s - m_pEgoVehicle->mS) / SAFE_DISTANCE_TO_MAINTAIN);
-          reduce_or_increase_by = 1.0 / factor * VEL_FACTOR;
+          // reduce_or_increase_by = (1.0 / factor) * VEL_FACTOR;
+          reduce_or_increase_by = VEL_FACTOR;
+          cout << "Factor of Speed Reduction: " << reduce_or_increase_by << endl;
         }
         // Increase velocity if changing lanes otherwise reduce speed if continuing on the same lane
         newVel = reduceOrIncreaseReferenceVelocity(i == m_currentLane, m_refVel, reduce_or_increase_by);
@@ -132,7 +148,6 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
     ego_vehicle_states.push_back(new EgoVehicleNewState(m_currentLane, newVel));
   }
 
-  assert(ego_vehicle_states.size() <= 3);
   return ego_vehicle_states;
 }
 
