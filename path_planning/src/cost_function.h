@@ -23,6 +23,14 @@ double collision_cost(const Path *pPath,
                       const std::vector<double> &maps_x,
                       const std::vector<double> &maps_y);
 
+double collision_cost_frenet(const Path *pPath,
+                      const EgoVehicle *pEgoVehicle,
+                      const int current_lane,
+                      const int target_lane,
+                      const std::unordered_map<int, std::vector<Vehicle*>>& laneIdToVehicles,
+                      const std::vector<double> &maps_x,
+                      const std::vector<double> &maps_y);
+
 double compute_cost(const Path* pPath,
                     const EgoVehicle *pEgoVehicle,
                     const int current_lane,

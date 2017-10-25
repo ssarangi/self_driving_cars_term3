@@ -107,7 +107,10 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
     double check_speed = sqrt(vx * vx + vy * vy);
 
     check_car_s += ((double)previous_iteration_points_left * 0.02 * check_speed); // If using previous points can project s value output
-    if ((check_car_s > m_pEgoVehicle->mS) && ((check_car_s - m_pEgoVehicle->mS) < SAFE_DISTANCE_TO_MAINTAIN)) {
+//    if ((check_car_s > m_pEgoVehicle->mS) && ((check_car_s - m_pEgoVehicle->mS) < SAFE_DISTANCE_TO_MAINTAIN)) {
+//      too_close = true;
+//    }
+    if (true) {
       too_close = true;
       int farthestLeftLane = FARTHEST_LEFT_LANE;
       int farthestRightLane = FARTHEST_RIGHT_LANE;
@@ -131,14 +134,16 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
         if (i == m_currentLane) {
           // Reduce the velocity by a factor of how close we are to the other vehicle
           double factor = ((check_car_s - m_pEgoVehicle->mS) / SAFE_DISTANCE_TO_MAINTAIN);
-          // reduce_or_increase_by = (1.0 / factor) * VEL_FACTOR;
-          reduce_or_increase_by = VEL_FACTOR;
+          reduce_or_increase_by = (1.0 / factor) * VEL_FACTOR;
+          // reduce_or_increase_by = VEL_FACTOR;
           cout << "Factor of Speed Reduction: " << reduce_or_increase_by << endl;
         }
         // Increase velocity if changing lanes otherwise reduce speed if continuing on the same lane
         newVel = reduceOrIncreaseReferenceVelocity(i == m_currentLane, m_refVel, reduce_or_increase_by);
         ego_vehicle_states.push_back(new EgoVehicleNewState(i, newVel));
       }
+
+      break;
     }
   }
 
@@ -206,9 +211,10 @@ Path* PathPlanner::createPointsForSpline(
   }
 
   // In Frenet add evenly 30m spaced points ahead of the starting reference
-  vector<double> next_wp0 = getXY(pEgoVehicle->mS + 30, (2 + 4 * current_lane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
-  vector<double> next_wp1 = getXY(pEgoVehicle->mS + 60, (2 + 4 * current_lane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
-  vector<double> next_wp2 = getXY(pEgoVehicle->mS + 90, (2 + 4 * current_lane), m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  int d = LANE_WIDTH / 2 + LANE_WIDTH * current_lane;
+  vector<double> next_wp0 = getXY(pEgoVehicle->mS + 30, d, m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp1 = getXY(pEgoVehicle->mS + 60, d, m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
+  vector<double> next_wp2 = getXY(pEgoVehicle->mS + 90, d, m_mapWaypoints_s, m_mapWaypoints_x, m_mapWaypoints_y);
 
   pPointsOnSpline->x_vals.push_back(next_wp0[0]);
   pPointsOnSpline->x_vals.push_back(next_wp1[0]);
