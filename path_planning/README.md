@@ -1,6 +1,6 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
@@ -38,13 +38,13 @@ Here is the data provided from the Simulator to the C++ Program
 #### Previous path data given to the Planner
 
 //Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
+the path has processed since last time.
 
 ["previous_path_x"] The previous list of x points previously given to the simulator
 
 ["previous_path_y"] The previous list of y points previously given to the simulator
 
-#### Previous path's end s and d values 
+#### Previous path's end s and d values
 
 ["end_path_s"] The previous list's last point's frenet s value
 
@@ -52,7 +52,7 @@ the path has processed since last time.
 
 #### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
 
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
+["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates.
 
 ## Details
 
@@ -82,7 +82,7 @@ A really helpful resource for doing this project and creating smooth trajectorie
   * Run either `install-mac.sh` or `install-ubuntu.sh`.
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
-    git clone https://github.com/uWebSockets/uWebSockets 
+    git clone https://github.com/uWebSockets/uWebSockets
     cd uWebSockets
     git checkout e94b6e1
     ```
@@ -138,3 +138,85 @@ still be compilable with cmake and make./
 ## How to write a README
 A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
+# Model Generation
+
+The path planner project exposes an important aspect of the Self Driving Car. The
+responsibilities of this module is to generate the path from the source to the target
+There are a couple of different parts to the path planning module. The main
+components to these are
+* Multiple trajectory Generation
+* Evaluating the cost functions for these trajectories
+* Implementing the best cost state.
+
+I liked the approach from the Path Planning Walkthrough. I mean we control car’s
+velocity instead of acceleration. If we do not increase speed more than 0.224 mph
+in 0.02 sec time frame, our car will not suffer from longitudinal jerks. If we use
+spline library to smooth our path, we will not suffer from latitudinal jerks.
+This approximation is rough but sufficient for our toy track (actually, sometimes
+I still able to see maximum jerk violation message).
+
+To analyze and predict car’s behavior I work with frenet coordinates. It is not
+easy to determine from Cartesian coordinates whether two cars are in the same lane.
+It is better to use frenet coordinates for this. The idea behind frenet coordinates
+is pretty simple. If we take the middle of the road as y axis and define d as a
+distance from the y axis, we get frenet coordinates. Now to determine whether two
+cars are in the same lane, we just need to compare d-value of frenet coordinates.
+
+I used this approach to find out which lanes are occupied by which vehicles. The
+advantage of this approach is that it lets us only compare for collision for cars
+in a particular lane.
+
+For each frame the overall algorithm used is described in the steps below:
+* Initialize the position of the Ego Vehicle.
+* Initialize the traffic on the road
+  - This involves finding out which cars are in lanes 0 to 2 and initializing them in a map so that they can be queried easily.
+* Check if the current car position is too close to the cars in the same lane.
+* If it is not then increase the speed.
+* If it is then generate trajectories to compute.
+* If so look at the following cases:
+  - Lane 0, generate trajectories for Lane 0 (by slowing) and Lane 1
+  - Lane 1, generate trajectories for Lane 0, Lane 1 (by slowing) and Lane 2
+  - Lane 2, generate trajectories for Lane 2 (by slowing) and Lane 1
+* Trajectory Generation algorithm goes as follows:
+  - Generate 5 points, 2 from the previous step and 3 points at 30m intervals
+  - Now create a spline using these 5 points.
+* Now compute cost for all the trajectories generated.
+  - Not in middle lane cost
+  - Too many cars in target lane
+  - Less than optimum speed
+  - Collision cost
+* Once, all the costs are computed, we pick the lowest cost state.
+  - However, if the costs are almost similar then the state preferred is to
+    stay in the current lane and slow down.
+
+## Trajectory Generation
+If there are no points from the previous path, then take the 1 point from the previous
+path, current position and 3 more points all at 30m apart.
+We use the spline library to use these 5 points to generate a spline which is
+then used for the ego vehicles path.
+
+## Cost Functions:
+### Not in middle lane cost
+This cost is used for keeping the ego vehicle in the middle lane. Keeping the car
+in the middle lane keeps options open to transition to the right and left lane which
+is useful, especially when there are too many cars.
+
+### Too many cars in target lane
+Typically the ego vehicle should try to stay away from lanes which have too many cars
+in the target lane. The reasoning for this is that even though it might have a lower cost
+for the ego vehicle in the short term, it would eventually slow down the ego vehicle.
+However, in the implementation of this cost function, I took into account all the vehicles
+in the target lane which might not be correct since some may be behind the ego vehicle.
+
+### Less than optimum speed
+Driving at less than speed limit also imposes a higher cost since its not optimum
+for the ego vehicle to be driving slower to its goal.
+
+### Collision cost
+This is the most important cost since its a safety feature. The collision cost is pretty
+straight-forward to compute.
+- For every car in the target lane.
+  - Find the new position of the car assuming constant velocity
+  - For every point on the trajectory
+    - If the distance < SAFE DISTANCE
+      - make that the best cost

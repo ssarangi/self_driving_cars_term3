@@ -78,16 +78,18 @@ void PathPlanner::initializeTraffic(
     }
   }
 
-  cout << "=======================================================" << endl;
   // Show number of cars only in neighboring lanes
   int lane_left = m_currentLane - 1;
   int lane_right = m_currentLane + 1;
 
-  if (m_LaneIdToVehicles.find(lane_left) != m_LaneIdToVehicles.end())
-    cout << "Cars in lane: " << lane_left << " --> " << m_LaneIdToVehicles[lane_left].size() << endl;
-  if (m_LaneIdToVehicles.find(lane_right) != m_LaneIdToVehicles.end())
-    cout << "Cars in lane: " << lane_right << " --> " << m_LaneIdToVehicles[lane_right].size() << endl;
-  cout << "=======================================================" << endl;
+//  cout << "=======================================================" << endl;
+//  if (m_LaneIdToVehicles.find(lane_left) != m_LaneIdToVehicles.end())
+//    cout << "Cars in lane: " << lane_left << " --> " << m_LaneIdToVehicles[lane_left].size() << endl;
+//  if (m_LaneIdToVehicles.find(lane_right) != m_LaneIdToVehicles.end())
+//    cout << "Cars in lane: " << lane_right << " --> " << m_LaneIdToVehicles[lane_right].size() << endl;
+//  if (m_LaneIdToVehicles.find(m_currentLane) != m_LaneIdToVehicles.end())
+//    cout << "Cars in lane: " << m_currentLane << " --> " << m_LaneIdToVehicles[m_currentLane].size() << endl;
+//  cout << "=======================================================" << endl;
 }
 
 // Check if the ego vehicle is close to other cars in the same lane.
@@ -100,6 +102,7 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
   vector<Vehicle*> vehicles_in_ego_car_lane = m_LaneIdToVehicles[m_currentLane];
 
   vector<EgoVehicleNewState*> ego_vehicle_states;
+  double min_distance = numeric_limits<double>::max();
   for (Vehicle* vehicle : vehicles_in_ego_car_lane) {
     double vx = vehicle->vx;
     double vy = vehicle->vy;
@@ -107,49 +110,46 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
     double check_speed = sqrt(vx * vx + vy * vy);
 
     check_car_s += ((double)previous_iteration_points_left * 0.02 * check_speed); // If using previous points can project s value output
-//    if ((check_car_s > m_pEgoVehicle->mS) && ((check_car_s - m_pEgoVehicle->mS) < SAFE_DISTANCE_TO_MAINTAIN)) {
-//      too_close = true;
-//    }
-    if (true) {
+    if ((check_car_s > m_pEgoVehicle->mS) && ((check_car_s - m_pEgoVehicle->mS) < SAFE_DISTANCE_TO_MAINTAIN)) {
+      if (min_distance > (check_car_s - m_pEgoVehicle->mS))
+        min_distance = check_car_s; // Find the minimum distance from the closest car in our lane.
       too_close = true;
-      int farthestLeftLane = FARTHEST_LEFT_LANE;
-      int farthestRightLane = FARTHEST_RIGHT_LANE;
-
-      if (m_currentLane == FARTHEST_LEFT_LANE) {
-        farthestLeftLane = m_currentLane;
-        farthestRightLane = m_currentLane + 1;
-      } else if (m_currentLane == FARTHEST_RIGHT_LANE) {
-        farthestLeftLane = m_currentLane - 1;
-        farthestRightLane = m_currentLane;
-      } else {
-        farthestLeftLane = m_currentLane - 1;
-        farthestRightLane = m_currentLane + 1;
-      }
-
-      cout << "Farthest Left: " << farthestLeftLane << " Farthest Right: " << farthestRightLane << endl;
-
-      for (int i = farthestLeftLane; i <= farthestRightLane; ++i) {
-        double newVel = m_refVel;
-        double reduce_or_increase_by = VEL_FACTOR;
-        if (i == m_currentLane) {
-          // Reduce the velocity by a factor of how close we are to the other vehicle
-          double factor = ((check_car_s - m_pEgoVehicle->mS) / SAFE_DISTANCE_TO_MAINTAIN);
-          reduce_or_increase_by = (1.0 / factor) * VEL_FACTOR;
-          // reduce_or_increase_by = VEL_FACTOR;
-          cout << "Factor of Speed Reduction: " << reduce_or_increase_by << endl;
-        }
-        // Increase velocity if changing lanes otherwise reduce speed if continuing on the same lane
-        newVel = reduceOrIncreaseReferenceVelocity(i == m_currentLane, m_refVel, reduce_or_increase_by);
-        ego_vehicle_states.push_back(new EgoVehicleNewState(i, newVel));
-      }
-
-      break;
     }
   }
 
-  if (!too_close) {
+  if (too_close) {
+    int farthestLeftLane = FARTHEST_LEFT_LANE;
+    int farthestRightLane = FARTHEST_RIGHT_LANE;
+
+    if (m_currentLane == FARTHEST_LEFT_LANE) {
+      farthestLeftLane = m_currentLane;
+      farthestRightLane = m_currentLane + 1;
+    } else if (m_currentLane == FARTHEST_RIGHT_LANE) {
+      farthestLeftLane = m_currentLane - 1;
+      farthestRightLane = m_currentLane;
+    } else {
+      farthestLeftLane = m_currentLane - 1;
+      farthestRightLane = m_currentLane + 1;
+    }
+
+    // cout << "Farthest Left: " << farthestLeftLane << " Farthest Right: " << farthestRightLane << endl;
+
+    for (int i = farthestLeftLane; i <= farthestRightLane; ++i) {
+      double newVel = m_refVel;
+      double reduce_or_increase_by = VEL_FACTOR;
+      if (i == m_currentLane) {
+        // Reduce the velocity by a factor of how close we are to the other vehicle
+        double factor = (min_distance / SAFE_DISTANCE_TO_MAINTAIN);
+        // reduce_or_increase_by = -(1.0 / factor) * VEL_FACTOR;
+        reduce_or_increase_by = -VEL_FACTOR;
+      }
+      // Increase velocity if changing lanes otherwise reduce speed if continuing on the same lane
+      newVel = reduceOrIncreaseReferenceVelocity(m_refVel, reduce_or_increase_by);
+      ego_vehicle_states.push_back(new EgoVehicleNewState(i, newVel));
+    }
+  } else {
     // If the cars are not too close, then continue on the current path and increase velocity.
-    double newVel = reduceOrIncreaseReferenceVelocity(false, m_refVel, VEL_FACTOR);
+    double newVel = reduceOrIncreaseReferenceVelocity(m_refVel, VEL_FACTOR);
     ego_vehicle_states.push_back(new EgoVehicleNewState(m_currentLane, newVel));
   }
 
@@ -158,16 +158,11 @@ vector<EgoVehicleNewState*> PathPlanner::checkClosenessToOtherCarsAndChangeLanes
 
 // Change the reference velocity for any vehicle.
 double PathPlanner::reduceOrIncreaseReferenceVelocity(
-    const bool too_close,
     const double oldRefVel,
     const double reduce_or_increase_by) {
   double newRefVel = oldRefVel;
 
-  if (too_close) {
-    newRefVel -= reduce_or_increase_by;
-  } else if (oldRefVel < MAX_SPEED) {
-    newRefVel += reduce_or_increase_by;
-  }
+  newRefVel += reduce_or_increase_by;
 
   newRefVel = changeVelocity(newRefVel);
 
@@ -262,7 +257,7 @@ unique_ptr<Path> PathPlanner::interpolatePointsOnSpline(
 
   double x_add_on= 0;
   double N = (target_dist / (0.02 * m_refVel/2.24));
-  for (int i = 0; i <= 50 - previous_path_x.size(); ++i) {
+  for (int i = 0; i <= TRACK_GENERATION_DISTANCE - previous_path_x.size(); ++i) {
     double x_point = x_add_on + (target_x) / N;
     double y_point = spline(x_point);
 
@@ -388,12 +383,6 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
                                    previous_path_x,
                                    previous_path_y);
         future_results.push_back(std::move(res));
-        double cost = computeCostForTrajectory(
-              this,
-              pNewState,
-              previous_path_x,
-              previous_path_y);
-        future_results.push_back(cost);
 #else
         double cost = computeCostForTrajectory(
               pNewState,
@@ -404,11 +393,29 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
       }
     }
 
-    double min_cost = numeric_limits<double>::max();
+    // Find the cost for continuing on the current state.
+    double min_cost = 0.0;
+    // For each trajectory generated find out the cost function.
+    double continue_on_current_lane_cost = 0.0;
+
+    vector<double> extracted_future_results;
+    for (int i = 0; i < possibleEgoVehicleNewStates.size(); ++i) {
+      if (possibleEgoVehicleNewStates[i]->new_lane == m_currentLane) {
+#ifdef MULTITHREADED
+        continue_on_current_lane_cost = future_results[i].get();
+        extracted_future_results.push_back(continue_on_current_lane_cost);
+#else
+        continue_on_current_lane_cost = future_results[i];
+#endif
+        best_vel = possibleEgoVehicleNewStates[i]->refVel;
+      }
+
+      min_cost = continue_on_current_lane_cost;
+    }
 
     for (int i = 0; i < future_results.size(); ++i) {
 #ifdef MULTITHREADED
-      double current_cost = future_results[i].get();
+      double current_cost = extracted_future_results[i];
 #else
       double current_cost = future_results[i];
 #endif
@@ -417,8 +424,9 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
       if (i == m_currentLane)
         cout << " <--- Current Lane";
       cout << endl;
-      // For each trajectory generated find out the cost function.
-      if (current_cost < min_cost) {
+
+      if (abs(current_cost - continue_on_current_lane_cost) > THRESHOLD_FOR_STATE_CHANGE &&
+          current_cost < min_cost) {
         best_lane = possibleEgoVehicleNewStates[i]->new_lane;
         best_vel = possibleEgoVehicleNewStates[i]->refVel;
         min_cost = current_cost;
@@ -427,8 +435,8 @@ unique_ptr<Path> PathPlanner::generateTrajectory(
   }
 
   if (possibleEgoVehicleNewStates.size() > 1) {
-    cout << "Total States: " << possibleEgoVehicleNewStates.size() << endl;
-    cout << "Choosing Best Lane: " << best_lane << endl;
+    // cout << "Total States: " << possibleEgoVehicleNewStates.size() << endl;
+    cout << "Choosing Best Lane: " << best_lane << " with vel: " << best_vel << endl;
     cout << "-----------------------------------------------------" << endl;
   }
   // EgoVehicleNewState *pNewState = selectRandomLane(possibleEgoVehicleNewStates);

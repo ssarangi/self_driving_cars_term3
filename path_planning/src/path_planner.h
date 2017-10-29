@@ -79,7 +79,6 @@ private:
     const int previous_iteration_points_left);
 
   static double reduceOrIncreaseReferenceVelocity(
-      const bool too_close,
       const double oldRefVel,
       const double reduce_or_increase_by);
 

@@ -128,7 +128,7 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
     prev_wp++;
   }
 
-  int wp2 = (prev_wp+1)%maps_x.size();
+  int wp2 = (prev_wp+1) % maps_x.size();
 
   double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
   // the x,y,s along the segment
