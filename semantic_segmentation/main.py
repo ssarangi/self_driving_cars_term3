@@ -29,7 +29,7 @@ def load_vgg(sess, vgg_path):
     vgg_tag = 'vgg16'
 
     graph = tf.get_default_graph()
-    tf.saved_model.loader.load(sess, [vgg_tag], vgg_tag)
+    tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
 
     vgg_input_tensor_name = 'image_input:0'
     input = graph.get_tensor_by_name(vgg_input_tensor_name)
