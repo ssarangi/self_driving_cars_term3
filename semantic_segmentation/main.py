@@ -165,6 +165,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             if count % 2 == 0:
                 print('Epoch {}/{}...'.format(epoch, epochs),
                       'Training Loss: {:.4f}...'.format(loss))
+            count += 1
 
 tests.test_train_nn(train_nn)
 
