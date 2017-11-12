@@ -4,6 +4,7 @@ import helper
 import warnings
 from distutils.version import LooseVersion
 import project_tests as tests
+import matplotlib.pyplot as plt
 
 
 # Check TensorFlow Version
@@ -62,8 +63,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
     fc_layer = tf.layers.conv2d(vgg_layer7_out,
                                 num_classes,
-                                1,
-                                1,
+                                1, 1,
                                 kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
@@ -78,8 +78,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
     layer4_skip_conv = tf.layers.conv2d(vgg_layer4_out,
                                         num_classes,
-                                        1,
-                                        1,
+                                        1, 1,
                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     layer4_skip_connection = tf.add(layer7_upsample, layer4_skip_conv)
@@ -94,8 +93,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     layer3_skip_conv = tf.layers.conv2d_transpose(
         vgg_layer3_out,
         num_classes,
-        1,
-        1,
+        1, 1,
         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     layer3_skip_connection = tf.add(layer4_upsample, layer3_skip_conv)
@@ -149,7 +147,9 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-    count = 0
+    losses = []
+    float_learning_rate = 0.0002
+    float_keep_prob = 0.5
     for epoch in range(epochs):
         for image, label in get_batches_fn(batch_size):
             # Training
@@ -158,14 +158,17 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
                 feed_dict={
                     input_image: image,
                     correct_label: label,
-                    keep_prob: 0.7,
-                    learning_rate: 0.0005
+                    keep_prob: float_keep_prob,
+                    learning_rate: float_learning_rate
                 }
             )
-            if count % 2 == 0:
-                print('Epoch {}/{}...'.format(epoch, epochs),
-                      'Training Loss: {:.4f}...'.format(loss))
-            count += 1
+        print('Epoch {}/{}...'.format(epoch, epochs),
+              'Training Loss: {:.4f}...'.format(loss))
+        losses.append(str(loss))
+    
+    with open('%s-%s-%s.csv' % (epochs, float_learning_rate, float_keep_prob), 'w') as f:
+        for loss in losses:
+            f.write(loss)
 
 tests.test_train_nn(train_nn)
 
@@ -176,8 +179,8 @@ def run():
     data_dir = './data'
     runs_dir = './runs'
     tests.test_for_kitti_dataset(data_dir)
-    batch_size = 10
-    epochs = 10
+    batch_size = 20
+    epochs = 100
 
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
@@ -216,15 +219,12 @@ def run():
             keep_prob,
             learning_rate)
 
-
-        # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
-
-        # OPTIONAL: Apply the trained model to a video
         saver = tf.train.Saver()
         saver.save(sess, 'model/model.ckpt')
         saver.export_meta_graph('model/final.meta')
         tf.train.write_graph(sess.graph_def, './model', 'final.pb', False)
+
+        # TODO: Save inference data using helper.save_inference_samples
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, reshaped_logits, keep_prob, input_image)
 
 
