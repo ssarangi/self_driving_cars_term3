@@ -31,7 +31,7 @@ python main.py
  - `main.py`
  - `project_tests.py`
  - Newest inference images from `runs` folder  (**all images from the most recent run**)
- 
+
 ### Semantic Segmentation Steps
 
 1. Load VGG
@@ -49,3 +49,9 @@ python main.py
      As we train we print the epoch and training loss
 6. Save the model after training
 7. Run the model on testing images and produce the result in the run folder
+
+![Loss Function](loss.png)
+
+![Comparison of Segmentation with Epochs 10](images/epochs_10.png)
+![Comparison of Segmentation with Epochs 50](images/epochs_20.png)
+![Comparison of Segmentation with Epochs 100](images/epochs_100.png)
