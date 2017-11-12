@@ -52,9 +52,12 @@ python main.py
 
 ![Loss Function](loss.png)
 
-Epochs 10
+Epochs 10  
+  
 ![Comparison of Segmentation with Epochs 10](images/epochs_10.png)
-Epochs 50
+Epochs 50  
+
 ![Comparison of Segmentation with Epochs 50](images/epochs_20.png)
-Epochs 100
+Epochs 100  
+
 ![Comparison of Segmentation with Epochs 100](images/epochs_100.png)
